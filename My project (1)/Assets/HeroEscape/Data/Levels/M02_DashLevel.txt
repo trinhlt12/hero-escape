@@ -1,0 +1,25 @@
+// Hero Escape - Level 02: giới thiệu Dash.
+// KHÔNG phải một trong 12 màn chính thức của GDD.
+//
+// Ký hiệu lưới: .  Sàn | #  Tường | E  Cửa thoát | H  Hero (đứng trên Sàn) | X  X01 (đứng trên Sàn)
+// Dòng đầu của lưới là hàng trên cùng. Gốc (0,0) ở góc dưới trái; x tăng sang phải, y tăng lên trên (N = y + 1).
+//
+// Ý đồ: chỉ Move/Wait thì X01 luôn chặn kịp ở hàng dưới (đã duyệt hết trạng thái, vô nghiệm).
+// Một lần Dash đúng lúc giúp Hero vượt qua X01. Chờ rồi mới Dash E thì đáp xuống cạnh X01 và bị bắt.
+//
+// Sau khi sửa, chạy Test Runner (EditMode) để kiểm chứng lại các điều kiện thiết kế của màn.
+
+id: M02_DASH
+
+// Số lần Dash mỗi lần chơi.
+dash: 2
+
+grid:
+. . . . E
+. # # # .
+. . X # .
+# . . # .
+H . . . .
+
+// Chuỗi thắng tham chiếu chỉ dùng 1 Dash (không bắt buộc dùng cả 2).
+solution: E DASH-E E N N N N

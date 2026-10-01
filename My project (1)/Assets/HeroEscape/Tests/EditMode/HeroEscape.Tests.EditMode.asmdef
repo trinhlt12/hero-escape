@@ -4,6 +4,7 @@
     "references": [
         "HeroEscape.Core",
         "HeroEscape.Search",
+        "HeroEscape.Unity",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

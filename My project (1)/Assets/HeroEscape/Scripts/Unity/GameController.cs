@@ -1,173 +1,243 @@
+using System;
 using System.Collections;
 using HeroEscape.Core;
 using HeroEscape.Search;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace HeroEscape.Unity
 {
+    /// <summary>Một màn trong chuỗi chơi thử: tên hiển thị và file level text.</summary>
+    [Serializable]
+    public sealed class LevelEntry
+    {
+        [SerializeField] string displayName;
+        [SerializeField] TextAsset levelFile;
+
+        public string DisplayName => displayName;
+        public TextAsset LevelFile => levelFile;
+    }
+
     /// <summary>
-    /// Nối GameSession (Core) với hiển thị và input. Không tự quyết định luật:
-    /// mọi hành động đi qua GameSession, view chỉ vẽ lại theo trạng thái trả về.
+    /// Nối GameSession (Core) với hiển thị và input, và chuyển giữa các màn.
+    /// Không tự quyết định luật: mọi hành động đi qua TurnInputController → GameSession,
+    /// view chỉ vẽ lại theo trạng thái trả về.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class GameController : MonoBehaviour
     {
-        [Tooltip("File level dạng text (Assets/HeroEscape/Data/Levels).")]
-        [SerializeField] TextAsset levelFile;
+        [Tooltip("Các màn theo thứ tự. Màn đầu tiên được nạp khi bắt đầu.")]
+        [SerializeField] LevelEntry[] levels;
         [SerializeField] BoardView boardView;
         [SerializeField] HudView hud;
         [Tooltip("Thời gian dừng giữa bước Hero và bước X01 để người chơi kịp nhìn. 0 = tức thời.")]
         [SerializeField, Min(0f)] float enemyStepDelay = 0.25f;
 
         GameSession session;
+        TurnInputController input;
+        int levelIndex = -1;
         Coroutine playback;
-        bool resolving;
-
-        bool CanAct => session != null && !resolving && session.Current.Outcome == GameOutcome.Playing;
 
         void Start()
         {
             hud.WaitClicked += OnWaitClicked;
+            hud.DashClicked += OnDashClicked;
             hud.RestartClicked += OnRestartClicked;
+            hud.NextLevelClicked += OnNextLevelClicked;
+            hud.BackClicked += OnBackClicked;
 
-            if (levelFile == null)
+            if (levels == null || levels.Length == 0)
             {
-                Fail("[GameController] Chưa gán file level.");
+                Fail("[GameController] No levels assigned. Rebuild the scene: Hero Escape > Milestone 01 > Dựng scene chơi thử.");
+                return;
+            }
+
+            LoadLevel(0);
+        }
+
+        void OnDestroy()
+        {
+            hud.WaitClicked -= OnWaitClicked;
+            hud.DashClicked -= OnDashClicked;
+            hud.RestartClicked -= OnRestartClicked;
+            hud.NextLevelClicked -= OnNextLevelClicked;
+            hud.BackClicked -= OnBackClicked;
+        }
+
+        void Update()
+        {
+            Keyboard keyboard = Keyboard.current;
+            if (input != null && keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+                Handle(input.Cancel());
+        }
+
+        /// <summary>Gọi từ BoardInput mỗi lần bấm; cell = null nếu bấm ngoài bàn.</summary>
+        public void OnBoardPressed(bool pointerOverUi, GridPos? cell)
+        {
+            if (input != null) Handle(input.PressBoard(pointerOverUi, cell));
+        }
+
+        void OnWaitClicked()
+        {
+            if (input != null) Handle(input.PressWait());
+        }
+
+        void OnDashClicked()
+        {
+            if (input != null) Handle(input.PressDash());
+        }
+
+        void OnRestartClicked()
+        {
+            if (input == null) return;
+            StopPlayback();
+            input.Restart();
+            ShowState(UiText.Restarted);
+        }
+
+        void OnNextLevelClicked()
+        {
+            bool canAdvance = session != null && session.Current.Outcome == GameOutcome.Won && levelIndex + 1 < levels.Length;
+            if (canAdvance) LoadLevel(levelIndex + 1);
+        }
+
+        void OnBackClicked()
+        {
+            if (levelIndex > 0) LoadLevel(0);
+        }
+
+        /// <summary>Vào màn luôn tạo GameSession và trạng thái input mới; hủy mọi trình bày của màn cũ.</summary>
+        void LoadLevel(int index)
+        {
+            StopPlayback();
+            session = null;
+            input = null;
+
+            LevelEntry entry = levels[index];
+            if (entry == null || entry.LevelFile == null)
+            {
+                Fail($"[GameController] Level {index} has no level file.");
                 return;
             }
 
             LevelData level;
             try
             {
-                level = LevelParser.Parse(levelFile.text);
+                level = LevelParser.Parse(entry.LevelFile.text);
             }
             catch (LevelFormatException e)
             {
-                Fail($"[GameController] Level '{levelFile.name}' không hợp lệ: {e.Message}");
+                Fail($"[GameController] Level '{entry.LevelFile.name}' is invalid: {e.Message}");
                 return;
             }
 
+            levelIndex = index;
             session = new GameSession(level, new Simulation(new BasicChasePolicy()));
+            input = new TurnInputController(session);
             boardView.Build(level);
-            ShowState(session.Current, string.Empty);
+            hud.SetTitle(UiText.LevelTitle(entry.DisplayName));
+            hud.SetHint(level.DashMaxUses > 0 ? UiText.HintDash : UiText.HintBasic);
+            ShowState(string.Empty);
         }
 
-        void OnDestroy()
+        void Handle(InputResponse response)
         {
-            hud.WaitClicked -= OnWaitClicked;
-            hud.RestartClicked -= OnRestartClicked;
-        }
-
-        /// <summary>Gọi từ BoardInput khi người chơi bấm vào một ô trong bàn.</summary>
-        public void OnCellClicked(GridPos cell)
-        {
-            if (!CanAct) return;
-
-            GridPos hero = session.Current.HeroPos;
-            if (cell == hero)
+            if (!response.Acted)
             {
-                // Bấm vào ô Hero không được tính là Chờ.
-                hud.SetNotice(UiText.ClickHero);
+                if (response.Feedback != null) hud.SetNotice(response.Feedback);
+                RefreshButtons();
                 return;
             }
 
-            if (!Directions.TryFromDelta(cell - hero, out Direction direction))
-            {
-                hud.SetNotice(UiText.NotAdjacent);
-                return;
-            }
-
-            Submit(HeroAction.Move(direction));
-        }
-
-        void OnWaitClicked()
-        {
-            if (CanAct) Submit(HeroAction.Wait);
-        }
-
-        void OnRestartClicked()
-        {
-            if (session == null) return;
-
-            // Hủy phần trình bày của lượt cũ; Revision mới cũng chặn mọi callback còn sót.
-            if (playback != null) StopCoroutine(playback);
-            playback = null;
-            resolving = false;
-
-            session.Restart();
-            ShowState(session.Current, UiText.Restarted);
-        }
-
-        void Submit(HeroAction action)
-        {
-            TurnResult result = session.Apply(action);
-            if (!result.Accepted)
-            {
-                // Hành động không hợp lệ: không đổi trạng thái, không mất lượt.
-                hud.SetNotice(UiText.ForError(result.Error));
-                return;
-            }
-
-            if (result.EnemyPhaseRan && enemyStepDelay > 0f)
-                playback = StartCoroutine(PlayEnemyStep(result, session.Revision));
+            TurnResult turn = response.Turn;
+            if (turn.EnemyPhaseRan && enemyStepDelay > 0f)
+                playback = StartCoroutine(PlayEnemyStep(turn, session, session.Revision));
             else
-                FinishTurn(result);
+                FinishTurn(turn);
         }
 
         /// <summary>Hiện bước Hero trước, dừng ngắn rồi mới hiện bước X01. Chặn input trong lúc này.</summary>
-        IEnumerator PlayEnemyStep(TurnResult result, int revision)
+        IEnumerator PlayEnemyStep(TurnResult turn, GameSession owner, int revision)
         {
-            resolving = true;
-            hud.SetWaitInteractable(false);
-            hud.SetNotice(string.Empty);
-            boardView.ShowActors(result.AfterHeroState);
+            input.Busy = true;
+            boardView.ShowActors(turn.AfterHeroState);
             hud.SetStatus(UiText.EnemyTurn);
+            hud.SetNotice(string.Empty);
+            RefreshButtons();
 
             yield return new WaitForSeconds(enemyStepDelay);
-            if (revision != session.Revision) yield break; // đã Restart trong lúc chờ
+            // Đã Restart hoặc đổi màn trong lúc chờ: bỏ qua phần còn lại của lượt cũ.
+            if (owner != session || revision != session.Revision) yield break;
 
-            resolving = false;
+            input.Busy = false;
             playback = null;
-            FinishTurn(result);
+            FinishTurn(turn);
         }
 
-        void FinishTurn(TurnResult result)
+        void FinishTurn(TurnResult turn)
         {
             bool enemyStayed = false;
-            foreach (RuleEvent e in result.Events)
+            foreach (RuleEvent e in turn.Events)
                 enemyStayed |= e.Kind == RuleEventKind.EnemyStayed;
 
-            ShowState(result.NextState, enemyStayed ? UiText.EnemyStayed : string.Empty);
+            ShowState(enemyStayed ? UiText.EnemyStayed : string.Empty);
         }
 
-        void ShowState(GameState state, string notice)
+        void StopPlayback()
         {
+            if (playback != null) StopCoroutine(playback);
+            playback = null;
+            if (input != null) input.Busy = false;
+        }
+
+        void ShowState(string notice)
+        {
+            GameState state = session.Current;
             boardView.ShowActors(state);
 
             switch (state.Outcome)
             {
                 case GameOutcome.Won:
                     hud.SetStatus(UiText.Won);
-                    hud.SetNotice(UiText.PressRestart);
+                    hud.SetNotice(HasNextLevel ? UiText.WonNext : UiText.WonLast);
                     break;
                 case GameOutcome.Lost:
                     hud.SetStatus(UiText.Lost);
                     hud.SetNotice(UiText.PressRestart);
                     break;
                 default:
-                    hud.SetStatus(UiText.PlayerTurn(state.Round));
+                    hud.SetStatus(UiText.YourTurn(state.Round));
                     hud.SetNotice(notice);
                     break;
             }
 
-            hud.SetWaitInteractable(CanAct);
+            RefreshButtons();
+        }
+
+        bool HasNextLevel => levelIndex + 1 < levels.Length;
+
+        void RefreshButtons()
+        {
+            if (input == null) return;
+
+            GameState state = session.Current;
+            hud.SetWaitInteractable(input.CanWait);
+            hud.SetDash(input.LevelHasDash, UiText.DashButton(state.DashUsesLeft, session.Level.DashMaxUses),
+                input.CanPressDash, input.Mode == InputMode.ChoosingDashDirection);
+            hud.SetNavigation(
+                showNext: state.Outcome == GameOutcome.Won && HasNextLevel,
+                showBack: levelIndex > 0,
+                backLabel: UiText.BackToButton(levels[0].DisplayName));
         }
 
         void Fail(string message)
         {
             Debug.LogError(message, this);
             hud.SetStatus(UiText.LevelError);
+            hud.SetNotice(string.Empty);
             hud.SetWaitInteractable(false);
+            hud.SetDash(false, string.Empty, false, false);
+            hud.SetNavigation(false, levelIndex > 0, UiText.BackToButton(levels != null && levels.Length > 0 ? levels[0].DisplayName : "Level 01"));
         }
     }
 }

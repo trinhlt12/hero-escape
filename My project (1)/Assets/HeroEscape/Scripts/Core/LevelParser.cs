@@ -11,13 +11,16 @@ namespace HeroEscape.Core
     /// grid:
     /// . . # . E      (dòng đầu là hàng trên cùng, Y lớn nhất)
     /// H . . . X
-    /// solution: N NE E WAIT
+    /// dash: 2        (tùy chọn; số lần Dash mỗi lần chơi, mặc định 0 = không có Dash)
+    /// solution: N NE DASH-E WAIT
     /// </code>
     /// Ký hiệu: . Sàn, # Tường, E Cửa, H Hero (trên Sàn), X X01 (trên Sàn). Dấu cách trong hàng được bỏ qua.
+    /// Bước lời giải: một hướng (N NE E SE S SW W NW), WAIT, hoặc DASH-hướng (ví dụ DASH-NE).
     /// </summary>
     public static class LevelParser
     {
         public const string WaitToken = "WAIT";
+        public const string DashPrefix = "DASH-";
 
         public static LevelData Parse(string text)
         {
@@ -25,6 +28,7 @@ namespace HeroEscape.Core
 
             string id = null;
             string solution = null;
+            int dashMaxUses = 0;
             var rows = new List<(int line, string row)>();
             bool inGrid = false;
 
@@ -47,6 +51,12 @@ namespace HeroEscape.Core
                 else if (TryReadKey(line, "solution:", out string solutionValue))
                 {
                     solution = solutionValue;
+                    inGrid = false;
+                }
+                else if (TryReadKey(line, "dash:", out string dashValue))
+                {
+                    if (!int.TryParse(dashValue, out dashMaxUses))
+                        throw Error(i, $"Giá trị 'dash:' phải là số nguyên, đang là '{dashValue}'.");
                     inGrid = false;
                 }
                 else if (inGrid)
@@ -101,7 +111,7 @@ namespace HeroEscape.Core
             if (!hero.HasValue) throw new LevelFormatException($"[{id}] Lưới thiếu Hero (H).");
             if (!enemy.HasValue) throw new LevelFormatException($"[{id}] Lưới thiếu X01 (X).");
 
-            return new LevelData(id, width, height, cells, hero.Value, enemy.Value, ParseActions(id, solution));
+            return new LevelData(id, width, height, cells, hero.Value, enemy.Value, ParseActions(id, solution), dashMaxUses);
         }
 
         public static IReadOnlyList<HeroAction> ParseActions(string levelId, string text)
@@ -115,8 +125,11 @@ namespace HeroEscape.Core
                     actions.Add(HeroAction.Wait);
                 else if (Directions.TryParse(token, out Direction direction))
                     actions.Add(HeroAction.Move(direction));
+                else if (token.StartsWith(DashPrefix, StringComparison.OrdinalIgnoreCase) &&
+                         Directions.TryParse(token.Substring(DashPrefix.Length), out Direction dashDirection))
+                    actions.Add(HeroAction.Dash(dashDirection));
                 else
-                    throw new LevelFormatException($"[{levelId}] Lời giải có bước '{token}' không hợp lệ. Dùng N NE E SE S SW W NW hoặc {WaitToken}.");
+                    throw new LevelFormatException($"[{levelId}] Lời giải có bước '{token}' không hợp lệ. Dùng N NE E SE S SW W NW, {WaitToken} hoặc {DashPrefix}<hướng>.");
             }
 
             return actions;

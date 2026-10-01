@@ -57,9 +57,16 @@ Ghi chú triển khai (không đổi luật):
 - **Art M01:** 5 Sprite asset trong `Assets/Art` (cắt từ `artboard.png`), không phải PNG riêng như manifest Art Guide; scale hiển thị tính trong `BoardView`, không đổi PPU/GUID.
 - **Chữ UI tạm:** `UnityEngine.UI.Text` + font tích hợp `LegacyRuntime.ttf` cho tới khi có font tiếng Việt được bàn giao (Art Guide mục 6).
 
+## D5 — Ngôn ngữ trong game và cấu hình Dash (từ Milestone 02)
+
+- **Text hiển thị trong game bằng tiếng Anh**, gom trong `Assets/HeroEscape/Scripts/Unity/UiText.cs`. Không có lựa chọn ngôn ngữ hoặc localization package. Thuật ngữ: Wait, Restart, Your Turn, Enemy Turn, You Win!, You Lose!, Next Level, Back to Level 01, Dash. Tài liệu, comment và báo cáo cho Game Designer vẫn bằng tiếng Việt.
+- **Dash cấu hình theo level:** khóa `dash: N` trong file level (mặc định 0 = không có Dash). Bước lời giải `DASH-<hướng>`.
+- Trạng thái chọn hướng Dash là trạng thái giao diện (`TurnInputController`), không nằm trong `GameState`; số lần Dash còn lại nằm trong `GameState`.
+
 ## Lịch sử
 
 | Ngày | Thay đổi |
 |---|---|
 | 2026-10-01 | Tạo tài liệu: D1 Unity 6000.3.8f1, D2 URP 2D Unlit, D3 quản lý repo/package. |
 | 2026-10-01 | Thêm D4: quy ước tọa độ, dữ liệu level, art và chữ UI từ Milestone 01. |
+| 2026-10-01 | Thêm D5: text trong game tiếng Anh, cấu hình Dash theo level (Milestone 02). |

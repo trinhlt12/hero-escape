@@ -7,8 +7,8 @@ using UnityEngine.InputSystem;
 namespace HeroEscape.Unity
 {
     /// <summary>
-    /// Đọc click/chạm trên bàn cờ bằng Input System và đổi sang ô lưới.
-    /// Bỏ qua lần bấm nằm trên UI để không kích hoạt ô phía sau nút.
+    /// Đọc click/chạm bằng Input System, đổi sang ô lưới và chuyển cho GameController.
+    /// Luôn báo kèm việc con trỏ có nằm trên UI hay không; lần bấm trên UI không được tác động bàn cờ.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class BoardInput : MonoBehaviour
@@ -25,10 +25,11 @@ namespace HeroEscape.Unity
             if (pointer == null || !pointer.press.wasPressedThisFrame) return;
 
             Vector2 screen = pointer.position.ReadValue();
-            if (IsOverUi(screen)) return;
+            bool overUi = IsOverUi(screen);
 
             Vector3 world = worldCamera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -worldCamera.transform.position.z));
-            if (board.TryWorldToCell(world, out GridPos cell)) controller.OnCellClicked(cell);
+            GridPos? cell = board.TryWorldToCell(world, out GridPos hit) ? hit : (GridPos?)null;
+            controller.OnBoardPressed(overUi, cell);
         }
 
         static bool IsOverUi(Vector2 screenPosition)

@@ -36,15 +36,23 @@ namespace HeroEscape.Core
         /// <summary>Chuỗi hành động tham chiếu dẫn đến thắng (có thể rỗng). Dùng để kiểm chứng level.</summary>
         public IReadOnlyList<HeroAction> ReferenceSolution { get; }
 
+        /// <summary>Số lần Dash tối đa trong một lần chơi màn này. 0 = màn không cho Dash.</summary>
+        public int DashMaxUses { get; }
+
+        public const int DashMaxUsesLimit = 9;
+
         public LevelData(string id, int width, int height, CellType[] cells, GridPos heroStart, GridPos enemyStart,
-            IReadOnlyList<HeroAction> referenceSolution)
+            IReadOnlyList<HeroAction> referenceSolution, int dashMaxUses = 0)
         {
             if (string.IsNullOrWhiteSpace(id)) throw new LevelFormatException("Level thiếu id.");
             if (width < MinSize || width > MaxSize || height < MinSize || height > MaxSize)
                 throw new LevelFormatException($"[{id}] Kích thước {width}x{height} nằm ngoài giới hạn {MinSize}-{MaxSize} mỗi chiều.");
             if (cells == null || cells.Length != width * height)
                 throw new LevelFormatException($"[{id}] Số ô không khớp kích thước {width}x{height}.");
+            if (dashMaxUses < 0 || dashMaxUses > DashMaxUsesLimit)
+                throw new LevelFormatException($"[{id}] Số lần Dash {dashMaxUses} nằm ngoài giới hạn 0-{DashMaxUsesLimit}.");
 
+            DashMaxUses = dashMaxUses;
             Id = id;
             Width = width;
             Height = height;

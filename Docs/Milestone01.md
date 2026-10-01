@@ -1,6 +1,8 @@
 # Milestone 01 — Màn chơi thử đầu tiên
 
-Ngày bắt đầu: 2026-10-01 • Trạng thái: **Đã có code và test; chờ dựng scene + kiểm tra Play Mode trong Editor**
+Ngày bắt đầu: 2026-10-01 • Trạng thái: **Hoàn thành.** Game Designer đã dựng scene và playtest (báo cáo 2026-10-01): lượt đi và thắng/thua hoạt động, không phát sinh lỗi. Bảng mục 5 giữ nguyên kết quả do Claude ghi tại thời điểm bàn giao.
+
+> Từ Milestone 02: text trong game đã chuyển sang tiếng Anh, scene chứa Level 01 và Level 02 (xem `Docs/Milestone02.md`). Gameplay Level 01 giữ nguyên.
 
 Tài liệu này khóa phạm vi Milestone 01. Các tính năng khác trong GDD/TDD thuộc các mốc sau, **không được tự triển khai** khi làm tiếp M01. Muốn mở rộng phải có yêu cầu mới từ Game Designer.
 

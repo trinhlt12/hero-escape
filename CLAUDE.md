@@ -11,7 +11,9 @@ Thứ tự ưu tiên khi có mâu thuẫn:
 3. **`Docs/TDD_Hero_Escape_Prototype_v0_1.docx`**: kiến trúc, dữ liệu, AI, preview/Undo, solver, Git, kiểm thử. Áp dụng đầy đủ, **trừ** hai điểm đã bị thay ở mục 1.
 4. **`Docs/Art_Guide_Hero_Escape_Prototype_v0_2 (1).docx`**: manifest 26 PNG, quy cách import, hiển thị trạng thái.
 5. **`Docs/Environment.md`**: phiên bản công cụ thực tế và kết quả kiểm tra môi trường (Passed / Failed / Not run).
-6. **`Docs/Milestone01.md`**: phạm vi khóa và tiến độ của milestone hiện tại. Không triển khai tính năng ngoài phạm vi milestone khi chưa có yêu cầu mới.
+6. **`Docs/Milestone01.md`**, **`Docs/Milestone02.md`**: phạm vi khóa và tiến độ từng milestone (Milestone02 là mới nhất). Không triển khai tính năng ngoài phạm vi milestone khi chưa có yêu cầu mới.
+
+Text hiển thị trong game bằng **tiếng Anh** (gom trong `UiText.cs`); trả lời Game Designer bằng tiếng Việt.
 
 File `.docx` là nhị phân. Muốn đọc, giải nén `word/document.xml` (PowerShell `System.IO.Compression`) vào scratchpad, giữ cả các bảng. Không tự đoán nội dung tài liệu.
 

@@ -4,9 +4,12 @@ namespace HeroEscape.Core
     {
         Move,
         Wait,
+        Dash,
     }
 
-    /// <summary>Hành động chính của Hero trong một lượt: đi một ô theo một hướng, hoặc Chờ.</summary>
+    /// <summary>
+    /// Hành động chính của Hero trong một lượt: đi một ô, Chờ, hoặc Dash (đi thẳng 2 ô theo một hướng).
+    /// </summary>
     public readonly struct HeroAction
     {
         public readonly HeroActionKind Kind;
@@ -22,6 +25,16 @@ namespace HeroEscape.Core
 
         public static HeroAction Wait => new HeroAction(HeroActionKind.Wait, default);
 
-        public override string ToString() => Kind == HeroActionKind.Wait ? "WAIT" : Direction.ToString();
+        public static HeroAction Dash(Direction direction) => new HeroAction(HeroActionKind.Dash, direction);
+
+        public override string ToString()
+        {
+            switch (Kind)
+            {
+                case HeroActionKind.Wait: return "WAIT";
+                case HeroActionKind.Dash: return "DASH-" + Direction;
+                default: return Direction.ToString();
+            }
+        }
     }
 }
