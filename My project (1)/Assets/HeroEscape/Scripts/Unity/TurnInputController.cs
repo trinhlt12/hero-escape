@@ -7,6 +7,7 @@ namespace HeroEscape.Unity
     {
         Normal,
         ChoosingDashDirection,
+        ChoosingStasisTarget,
     }
 
     /// <summary>Kết quả một thao tác input: lượt đã gửi (nếu có) và phản hồi cho người chơi.</summary>
@@ -49,12 +50,20 @@ namespace HeroEscape.Unity
 
         public GameSession Session => session;
         public bool LevelHasDash => session.Level.DashMaxUses > 0;
+        public bool LevelHasStasis => session.Level.StasisMaxUses > 0;
         public bool CanAct => !Busy && session.Current.Outcome == GameOutcome.Playing;
+
+        /// <summary>Wait chỉ dùng được khi không đang chọn hướng Dash hay mục tiêu Stasis.</summary>
         public bool CanWait => CanAct && Mode == InputMode.Normal;
 
         /// <summary>Nút Dash bấm được khi còn lượt dùng, hoặc đang chọn hướng (để hủy).</summary>
         public bool CanPressDash =>
             CanAct && LevelHasDash && (Mode == InputMode.ChoosingDashDirection || session.Current.DashUsesLeft > 0);
+
+        /// <summary>Nút Stasis bấm được khi còn thẻ và chưa dùng phụ trợ lượt này, hoặc đang chọn mục tiêu (để hủy).</summary>
+        public bool CanPressStasis =>
+            CanAct && LevelHasStasis && (Mode == InputMode.ChoosingStasisTarget ||
+                                         (session.Current.StasisUsesLeft > 0 && !session.Current.SupportUsedThisTurn));
 
         /// <summary>
         /// Bấm lên vùng bàn cờ. <paramref name="pointerOverUi"/> = con trỏ đang nằm trên UI: bỏ qua hoàn toàn.
@@ -63,6 +72,8 @@ namespace HeroEscape.Unity
         public InputResponse PressBoard(bool pointerOverUi, GridPos? cell)
         {
             if (pointerOverUi || !CanAct) return InputResponse.None;
+
+            if (Mode == InputMode.ChoosingStasisTarget) return ChooseStasisTarget(cell);
 
             bool dashing = Mode == InputMode.ChoosingDashDirection;
             if (!cell.HasValue) return dashing ? Feedback(UiText.DashPickAdjacent) : InputResponse.None;
@@ -85,7 +96,7 @@ namespace HeroEscape.Unity
 
         public InputResponse PressWait() => CanWait ? Submit(HeroAction.Wait) : InputResponse.None;
 
-        /// <summary>Bật/tắt chế độ chọn hướng Dash.</summary>
+        /// <summary>Bật/tắt chế độ chọn hướng Dash. Đang chọn mục tiêu Stasis thì chuyển sang Dash (hủy chọn Stasis).</summary>
         public InputResponse PressDash()
         {
             if (!CanAct || !LevelHasDash) return InputResponse.None;
@@ -102,20 +113,69 @@ namespace HeroEscape.Unity
             return Feedback(UiText.DashPrompt);
         }
 
-        /// <summary>Escape: hủy chọn hướng Dash nếu đang chọn. Không tốn lượt.</summary>
-        public InputResponse Cancel()
+        /// <summary>
+        /// Bật/tắt chế độ chọn mục tiêu Stasis. Chọn thẻ chưa tiêu hao gì.
+        /// Đang chọn hướng Dash thì chuyển sang Stasis (hủy chọn hướng Dash chưa thực hiện).
+        /// </summary>
+        public InputResponse PressStasis()
         {
-            if (Mode != InputMode.ChoosingDashDirection) return InputResponse.None;
-            Mode = InputMode.Normal;
-            return Feedback(UiText.DashCancelled);
+            if (!CanAct || !LevelHasStasis) return InputResponse.None;
+
+            if (Mode == InputMode.ChoosingStasisTarget)
+            {
+                Mode = InputMode.Normal;
+                return Feedback(UiText.StasisCancelled);
+            }
+
+            if (session.Current.StasisUsesLeft <= 0) return Feedback(UiText.NoStasisUsesLeft);
+            if (session.Current.SupportUsedThisTurn) return Feedback(UiText.SupportAlreadyUsed);
+
+            Mode = InputMode.ChoosingStasisTarget;
+            return Feedback(UiText.StasisPrompt);
         }
 
-        /// <summary>Chơi lại màn hiện tại: trạng thái đầu màn, đủ lượt Dash, xóa chế độ chọn hướng.</summary>
+        /// <summary>Escape: hủy chế độ chọn đang mở (hướng Dash hoặc mục tiêu Stasis). Không tốn lượt, không hoàn tác thẻ đã áp.</summary>
+        public InputResponse Cancel()
+        {
+            switch (Mode)
+            {
+                case InputMode.ChoosingDashDirection:
+                    Mode = InputMode.Normal;
+                    return Feedback(UiText.DashCancelled);
+                case InputMode.ChoosingStasisTarget:
+                    Mode = InputMode.Normal;
+                    return Feedback(UiText.StasisCancelled);
+                default:
+                    return InputResponse.None;
+            }
+        }
+
+        /// <summary>Chơi lại màn hiện tại: trạng thái đầu màn, đủ tài nguyên, xóa khóa và chế độ chọn.</summary>
         public void Restart()
         {
             session.Restart();
             Mode = InputMode.Normal;
             Busy = false;
+        }
+
+        /// <summary>
+        /// Trong chế độ chọn Stasis, bấm bàn cờ chỉ chọn mục tiêu, không di chuyển Hero.
+        /// Mục tiêu hợp lệ: áp thẻ ngay, thoát chế độ chọn, Hero vẫn còn hành động chính.
+        /// Mục tiêu sai: giữ chế độ chọn, không tiêu hao gì.
+        /// </summary>
+        InputResponse ChooseStasisTarget(GridPos? cell)
+        {
+            if (!cell.HasValue) return Feedback(UiText.StasisPrompt);
+
+            // Chỉ khóa đúng X01 đang đứng ở ô được bấm; gửi ID ổn định của X đó vào Core.
+            int index = session.Current.IndexOfEnemyAt(cell.Value);
+            if (index < 0) return Feedback(UiText.StasisError(ActionError.NoEnemyAtTarget));
+
+            SupportResult result = session.ApplyStasis(session.Current.Enemies[index].Id);
+            if (!result.Accepted) return Feedback(UiText.StasisError(result.Error));
+
+            Mode = InputMode.Normal;
+            return Feedback(UiText.StasisApplied);
         }
 
         InputResponse Submit(HeroAction action)

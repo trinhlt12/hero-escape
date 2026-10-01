@@ -1,6 +1,8 @@
 # Milestone 02 — Level 02 với Dash, UI tiếng Anh
 
-Ngày: 2026-10-01 • Trạng thái: **Đã có code, level và test; chờ dựng lại scene và playtest trong Editor**
+Ngày: 2026-10-01 • Trạng thái: **Hoàn thành.** Game Designer đã playtest Level 01 và Level 02 thành công (báo cáo 2026-10-01). Bảng mục 6 giữ nguyên kết quả do Claude ghi lúc bàn giao.
+
+> Từ Milestone 03: nút Back về màn liền trước; Level 02 vẫn hiện `Back to Level 01` (xem `Docs/Milestone03.md`).
 
 Tài liệu này khóa phạm vi task Milestone 02. Không tự triển khai các phần khác của prototype.
 

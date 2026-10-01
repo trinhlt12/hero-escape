@@ -1,0 +1,29 @@
+// Hero Escape - Level 04: hai X01 đuổi từ hai hướng; chọn đường chạy và mục tiêu Stasis.
+// KHÔNG phải một trong 12 màn chính thức của GDD.
+//
+// Ký hiệu lưới: .  Sàn | #  Tường | E  Cửa thoát | H  Hero (đứng trên Sàn)
+//               1  X01 hành động trước (ID X1) | 2  X01 hành động sau (ID X2)
+// Dòng đầu của lưới là hàng trên cùng. Gốc (0,0) ở góc dưới trái; x tăng sang phải, y tăng lên trên (N = y + 1).
+//
+// Ý đồ: X1 chặn hàng dưới, X2 chặn cột trái. Không Dash thì không thắng được (đã duyệt hết trạng thái).
+// Sau nước đầu N, cả hai X đều trong tầm Stasis: muốn Dash N thì phải khóa X2, muốn Dash E thì phải khóa X1;
+// khóa nhầm X thì bị bắt ngay trong pha địch đó.
+//
+// Sau khi sửa, chạy Test Runner (EditMode) để kiểm chứng lại các điều kiện thiết kế của màn.
+
+id: M04_TWO_ENEMIES
+
+// Số lần Dash và số lần dùng thẻ Stasis mỗi lần chơi.
+dash: 2
+stasis: 1
+
+grid:
+2 . . . . E
+. # # . # .
+. . . . . .
+. # . # # .
+. . . . 1 .
+H . . . . .
+
+// Chuỗi thắng tham chiếu. STASIS(X2)+ = dùng Stasis lên X2 rồi mới làm hành động chính trong cùng lượt.
+solution: N STASIS(X2)+DASH-N E E E N N DASH-E

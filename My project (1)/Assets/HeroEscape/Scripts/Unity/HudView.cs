@@ -18,17 +18,21 @@ namespace HeroEscape.Unity
         [SerializeField] Text hintText;
         [SerializeField] Button waitButton;
         [SerializeField] Button dashButton;
+        [SerializeField] Button stasisButton;
         [SerializeField] Button restartButton;
         [SerializeField] Button nextLevelButton;
         [SerializeField] Button backButton;
-        [Tooltip("Màu nút Dash khi đang chọn hướng.")]
+        [Tooltip("Màu nút Dash/Stasis khi đang chọn hướng hoặc mục tiêu.")]
         [SerializeField] Color dashSelectingColor = new Color32(0xE8, 0xB8, 0x49, 0xFF);
 
         Image dashImage;
         Color dashNormalColor;
+        Image stasisImage;
+        Color stasisNormalColor;
 
         public event Action WaitClicked;
         public event Action DashClicked;
+        public event Action StasisClicked;
         public event Action RestartClicked;
         public event Action NextLevelClicked;
         public event Action BackClicked;
@@ -37,12 +41,15 @@ namespace HeroEscape.Unity
         {
             waitButton.onClick.AddListener(() => WaitClicked?.Invoke());
             dashButton.onClick.AddListener(() => DashClicked?.Invoke());
+            stasisButton.onClick.AddListener(() => StasisClicked?.Invoke());
             restartButton.onClick.AddListener(() => RestartClicked?.Invoke());
             nextLevelButton.onClick.AddListener(() => NextLevelClicked?.Invoke());
             backButton.onClick.AddListener(() => BackClicked?.Invoke());
 
             dashImage = dashButton.targetGraphic as Image;
             if (dashImage != null) dashNormalColor = dashImage.color;
+            stasisImage = stasisButton.targetGraphic as Image;
+            if (stasisImage != null) stasisNormalColor = stasisImage.color;
 
             SetLabel(waitButton, UiText.WaitButton);
             SetLabel(restartButton, UiText.RestartButton);
@@ -66,6 +73,14 @@ namespace HeroEscape.Unity
             SetLabel(dashButton, label);
             dashButton.interactable = interactable;
             if (dashImage != null) dashImage.color = selecting ? dashSelectingColor : dashNormalColor;
+        }
+
+        public void SetStasis(bool visible, string label, bool interactable, bool selecting)
+        {
+            stasisButton.gameObject.SetActive(visible);
+            SetLabel(stasisButton, label);
+            stasisButton.interactable = interactable;
+            if (stasisImage != null) stasisImage.color = selecting ? dashSelectingColor : stasisNormalColor;
         }
 
         public void SetNavigation(bool showNext, bool showBack, string backLabel)

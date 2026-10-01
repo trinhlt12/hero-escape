@@ -35,10 +35,45 @@ namespace HeroEscape.Unity
         public const string DashCancelled = "Dash cancelled.";
         public const string NoDashUsesLeft = "No Dash uses left.";
 
+        public const string StasisDescription = "Skip this enemy's next turn. You can still move or dash.";
+        public const string HintStasis =
+            "Stasis: " + StasisDescription + "\nDash moves 2 tiles in a straight line. Wait stays in place.";
+        public const string StasisPrompt = "Select an enemy within 3 tiles.";
+        public const string StasisCancelled = "Stasis cancelled.";
+        public const string StasisApplied = "X01 is frozen. Now move, wait or dash.";
+        public const string NoStasisUsesLeft = "No Stasis uses left.";
+        public const string SupportAlreadyUsed = "You already used a support card this turn.";
+        public const string EnemySkipped = "X01 was frozen and skipped its turn.";
+        public const string FrozenLabel = "Frozen";
+
+        public const string EnemyOrderHint = "Enemies act in order: 1, then 2.";
+        public const string HintMultiEnemy =
+            EnemyOrderHint + "\nStasis freezes only the enemy you click. Dash moves 2 tiles in a straight line.";
+
+        /// <summary>Nhãn số thứ tự hành động đặt cạnh X01 (1 = hành động trước).</summary>
+        public static string EnemyOrder(int order) => order.ToString();
+
         public static string LevelTitle(string levelName) => $"{GameName} · {levelName}";
         public static string YourTurn(int round) => $"Round {round} · {YourTurnSuffix}";
         public static string DashButton(int usesLeft, int maxUses) => $"Dash ({usesLeft}/{maxUses})";
+        public static string StasisButton(int usesLeft, int maxUses) => $"Stasis ({usesLeft}/{maxUses})";
         public static string BackToButton(string levelName) => $"Back to {levelName}";
+
+        public static string StasisError(ActionError error)
+        {
+            switch (error)
+            {
+                case ActionError.NoEnemyAtTarget: return "Stasis needs a target. Click X01.";
+                case ActionError.TargetOutOfRange: return "X01 is too far. Stasis reaches 3 tiles.";
+                case ActionError.NoLineOfSight: return "A wall blocks the line of sight to X01.";
+                case ActionError.TargetAlreadyLocked: return "X01 is already frozen.";
+                case ActionError.NoStasisUsesLeft: return NoStasisUsesLeft;
+                case ActionError.SupportAlreadyUsedThisTurn: return SupportAlreadyUsed;
+                case ActionError.StasisNotAvailable: return "Stasis isn't available in this level.";
+                case ActionError.GameOver: return PressRestart;
+                default: return string.Empty;
+            }
+        }
 
         public static string MoveError(ActionError error)
         {
@@ -78,9 +113,12 @@ namespace HeroEscape.Unity
                     .Append(HintBasic).Append(HintDash).Append(YourTurn(1234567890)).Append(EnemyTurn).Append(Won).Append(Lost)
                     .Append(WonNext).Append(WonLast).Append(PressRestart).Append(Restarted).Append(EnemyStayed).Append(LevelError)
                     .Append(ClickHero).Append(NotAdjacent).Append(DashPrompt).Append(DashPickAdjacent).Append(DashCancelled)
-                    .Append(NoDashUsesLeft).Append(DashButton(2, 2)).Append(BackToButton("Level 01"));
+                    .Append(NoDashUsesLeft).Append(DashButton(2, 2)).Append(BackToButton("Level 01"))
+                    .Append(HintStasis).Append(StasisPrompt).Append(StasisCancelled).Append(StasisApplied).Append(NoStasisUsesLeft)
+                    .Append(SupportAlreadyUsed).Append(EnemySkipped).Append(FrozenLabel).Append(StasisButton(1, 1))
+                    .Append(HintMultiEnemy).Append(EnemyOrder(1234567890));
                 foreach (ActionError error in (ActionError[])System.Enum.GetValues(typeof(ActionError)))
-                    text.Append(MoveError(error)).Append(DashError(error, 2));
+                    text.Append(MoveError(error)).Append(DashError(error, 2)).Append(StasisError(error));
                 return text.ToString();
             }
         }

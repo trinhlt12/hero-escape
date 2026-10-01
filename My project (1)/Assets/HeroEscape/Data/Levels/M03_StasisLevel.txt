@@ -1,0 +1,28 @@
+// Hero Escape - Level 03: thẻ phụ trợ Stasis kết hợp Dash.
+// KHÔNG phải một trong 12 màn chính thức của GDD.
+//
+// Ký hiệu lưới: .  Sàn | #  Tường | E  Cửa thoát | H  Hero (đứng trên Sàn) | X  X01 (đứng trên Sàn)
+// Dòng đầu của lưới là hàng trên cùng. Gốc (0,0) ở góc dưới trái; x tăng sang phải, y tăng lên trên (N = y + 1).
+//
+// Ý đồ:
+// - Có 2 Dash nhưng không có Stasis: vô nghiệm (đã duyệt hết trạng thái).
+// - Stasis hợp lệ ngay lượt 1 (X01 cách 2 ô, có đường nhìn) nhưng dùng lúc đó thì hết đường thắng.
+// - Giữ thẻ, lượt 2 khi X01 xuống sát Hero mới khóa X01 rồi Dash lên trong cùng lượt.
+//
+// Sau khi sửa, chạy Test Runner (EditMode) để kiểm chứng lại các điều kiện thiết kế của màn.
+
+id: M03_STASIS
+
+// Số lần Dash và số lần dùng thẻ Stasis mỗi lần chơi.
+dash: 2
+stasis: 1
+
+grid:
+. . . . E
+. # # # .
+. . X # .
+# . . . #
+. . H . .
+
+// Chuỗi thắng tham chiếu. STASIS+ = dùng Stasis lên X01 rồi mới làm hành động chính trong cùng lượt.
+solution: W STASIS+DASH-N W N N E E DASH-E

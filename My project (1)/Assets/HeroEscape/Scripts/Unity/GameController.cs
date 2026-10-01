@@ -30,6 +30,8 @@ namespace HeroEscape.Unity
         [SerializeField] LevelEntry[] levels;
         [SerializeField] BoardView boardView;
         [SerializeField] HudView hud;
+        [Tooltip("Nhãn Frozen phía trên X01 khi X01 bị khóa.")]
+        [SerializeField] EnemyStatusLabel enemyStatus;
         [Tooltip("Thời gian dừng giữa bước Hero và bước X01 để người chơi kịp nhìn. 0 = tức thời.")]
         [SerializeField, Min(0f)] float enemyStepDelay = 0.25f;
 
@@ -42,6 +44,7 @@ namespace HeroEscape.Unity
         {
             hud.WaitClicked += OnWaitClicked;
             hud.DashClicked += OnDashClicked;
+            hud.StasisClicked += OnStasisClicked;
             hud.RestartClicked += OnRestartClicked;
             hud.NextLevelClicked += OnNextLevelClicked;
             hud.BackClicked += OnBackClicked;
@@ -59,6 +62,7 @@ namespace HeroEscape.Unity
         {
             hud.WaitClicked -= OnWaitClicked;
             hud.DashClicked -= OnDashClicked;
+            hud.StasisClicked -= OnStasisClicked;
             hud.RestartClicked -= OnRestartClicked;
             hud.NextLevelClicked -= OnNextLevelClicked;
             hud.BackClicked -= OnBackClicked;
@@ -87,6 +91,11 @@ namespace HeroEscape.Unity
             if (input != null) Handle(input.PressDash());
         }
 
+        void OnStasisClicked()
+        {
+            if (input != null) Handle(input.PressStasis());
+        }
+
         void OnRestartClicked()
         {
             if (input == null) return;
@@ -101,9 +110,10 @@ namespace HeroEscape.Unity
             if (canAdvance) LoadLevel(levelIndex + 1);
         }
 
+        /// <summary>Về màn liền trước (Level 02 → Level 01, Level 03 → Level 02).</summary>
         void OnBackClicked()
         {
-            if (levelIndex > 0) LoadLevel(0);
+            if (levelIndex > 0) LoadLevel(levelIndex - 1);
         }
 
         /// <summary>Vào màn luôn tạo GameSession và trạng thái input mới; hủy mọi trình bày của màn cũ.</summary>
@@ -135,8 +145,13 @@ namespace HeroEscape.Unity
             session = new GameSession(level, new Simulation(new BasicChasePolicy()));
             input = new TurnInputController(session);
             boardView.Build(level);
+            bool severalEnemies = level.Enemies.Count > 1;
+            if (enemyStatus != null) enemyStatus.Setup(level.Enemies.Count, showOrder: severalEnemies);
             hud.SetTitle(UiText.LevelTitle(entry.DisplayName));
-            hud.SetHint(level.DashMaxUses > 0 ? UiText.HintDash : UiText.HintBasic);
+            hud.SetHint(severalEnemies ? UiText.HintMultiEnemy
+                : level.StasisMaxUses > 0 ? UiText.HintStasis
+                : level.DashMaxUses > 0 ? UiText.HintDash
+                : UiText.HintBasic);
             ShowState(string.Empty);
         }
 
@@ -144,7 +159,9 @@ namespace HeroEscape.Unity
         {
             if (!response.Acted)
             {
+                // Không có hành động chính, nhưng thẻ phụ trợ có thể đã đổi trạng thái (Stasis): vẽ lại bàn và nút.
                 if (response.Feedback != null) hud.SetNotice(response.Feedback);
+                ShowBoard(session.Current);
                 RefreshButtons();
                 return;
             }
@@ -160,9 +177,9 @@ namespace HeroEscape.Unity
         IEnumerator PlayEnemyStep(TurnResult turn, GameSession owner, int revision)
         {
             input.Busy = true;
-            boardView.ShowActors(turn.AfterHeroState);
+            ShowBoard(turn.AfterHeroState);
             hud.SetStatus(UiText.EnemyTurn);
-            hud.SetNotice(string.Empty);
+            hud.SetNotice(AnyLocked(turn.AfterHeroState) ? UiText.EnemySkipped : string.Empty);
             RefreshButtons();
 
             yield return new WaitForSeconds(enemyStepDelay);
@@ -176,11 +193,30 @@ namespace HeroEscape.Unity
 
         void FinishTurn(TurnResult turn)
         {
-            bool enemyStayed = false;
+            string notice = string.Empty;
             foreach (RuleEvent e in turn.Events)
-                enemyStayed |= e.Kind == RuleEventKind.EnemyStayed;
+            {
+                if (e.Kind == RuleEventKind.EnemyStayed) notice = UiText.EnemyStayed;
+                else if (e.Kind == RuleEventKind.EnemySkipped) notice = UiText.EnemySkipped;
+            }
 
-            ShowState(enemyStayed ? UiText.EnemyStayed : string.Empty);
+            ShowState(notice);
+        }
+
+        /// <summary>Vẽ vị trí nhân vật và nhãn Frozen của từng X01 theo trạng thái đang trình bày.</summary>
+        void ShowBoard(GameState displayed)
+        {
+            boardView.ShowActors(displayed);
+            if (enemyStatus == null) return;
+            for (int i = 0; i < displayed.Enemies.Count; i++)
+                enemyStatus.SetFrozen(i, displayed.Enemies[i].Locked && displayed.Outcome == GameOutcome.Playing);
+        }
+
+        static bool AnyLocked(GameState state)
+        {
+            foreach (EnemyState enemy in state.Enemies)
+                if (enemy.Locked) return true;
+            return false;
         }
 
         void StopPlayback()
@@ -193,7 +229,7 @@ namespace HeroEscape.Unity
         void ShowState(string notice)
         {
             GameState state = session.Current;
-            boardView.ShowActors(state);
+            ShowBoard(state);
 
             switch (state.Outcome)
             {
@@ -224,11 +260,15 @@ namespace HeroEscape.Unity
             hud.SetWaitInteractable(input.CanWait);
             hud.SetDash(input.LevelHasDash, UiText.DashButton(state.DashUsesLeft, session.Level.DashMaxUses),
                 input.CanPressDash, input.Mode == InputMode.ChoosingDashDirection);
+            hud.SetStasis(input.LevelHasStasis, UiText.StasisButton(state.StasisUsesLeft, session.Level.StasisMaxUses),
+                input.CanPressStasis, input.Mode == InputMode.ChoosingStasisTarget);
             hud.SetNavigation(
                 showNext: state.Outcome == GameOutcome.Won && HasNextLevel,
                 showBack: levelIndex > 0,
-                backLabel: UiText.BackToButton(levels[0].DisplayName));
+                backLabel: BackLabel);
         }
+
+        string BackLabel => levelIndex > 0 ? UiText.BackToButton(levels[levelIndex - 1].DisplayName) : string.Empty;
 
         void Fail(string message)
         {
@@ -237,7 +277,9 @@ namespace HeroEscape.Unity
             hud.SetNotice(string.Empty);
             hud.SetWaitInteractable(false);
             hud.SetDash(false, string.Empty, false, false);
-            hud.SetNavigation(false, levelIndex > 0, UiText.BackToButton(levels != null && levels.Length > 0 ? levels[0].DisplayName : "Level 01"));
+            hud.SetStasis(false, string.Empty, false, false);
+            if (enemyStatus != null) enemyStatus.HideAllFrozen();
+            hud.SetNavigation(false, levelIndex > 0, BackLabel);
         }
     }
 }

@@ -34,7 +34,7 @@ namespace HeroEscape.Unity
 
         Transform contentRoot;
         Transform hero;
-        Transform enemy;
+        readonly System.Collections.Generic.List<Transform> enemies = new System.Collections.Generic.List<Transform>();
         int width = 5;
         int height = 5;
 
@@ -63,15 +63,28 @@ namespace HeroEscape.Unity
             }
 
             hero = CreateSprite("Hero H01", heroSprite, level.HeroStart, HeroOrder, actorFill);
-            enemy = CreateSprite("X01", enemySprite, level.EnemyStart, EnemyOrder, actorFill);
+            // Mọi X01 dùng chung sprite enemy_x01; thứ tự trong danh sách = thứ tự SpawnIndex.
+            foreach (EnemySpawn spawn in level.Enemies)
+                enemies.Add(CreateSprite($"X01 {spawn.Id}", enemySprite, spawn.Cell, EnemyOrder, actorFill));
         }
 
         public void ShowActors(GameState state)
         {
-            if (hero == null || enemy == null) return;
+            if (hero == null) return;
             hero.localPosition = CellToLocal(state.HeroPos);
-            enemy.localPosition = CellToLocal(state.EnemyPos);
+            for (int i = 0; i < enemies.Count && i < state.Enemies.Count; i++)
+                enemies[i].localPosition = CellToLocal(state.Enemies[i].Pos);
         }
+
+        /// <summary>Vị trí world của X01 thứ <paramref name="index"/> (theo SpawnIndex); false nếu không có.</summary>
+        public bool TryGetEnemyWorldPosition(int index, out Vector3 position)
+        {
+            bool exists = index >= 0 && index < enemies.Count && enemies[index] != null;
+            position = exists ? enemies[index].position : Vector3.zero;
+            return exists;
+        }
+
+        public float CellSize => cellSize;
 
         public bool TryWorldToCell(Vector3 world, out GridPos cell)
         {
@@ -116,7 +129,7 @@ namespace HeroEscape.Unity
             if (contentRoot != null) Destroy(contentRoot.gameObject);
             contentRoot = null;
             hero = null;
-            enemy = null;
+            enemies.Clear();
         }
     }
 }

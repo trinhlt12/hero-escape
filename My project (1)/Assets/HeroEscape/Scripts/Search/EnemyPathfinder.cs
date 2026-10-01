@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using HeroEscape.Core;
 
@@ -10,11 +11,16 @@ namespace HeroEscape.Search
     /// </summary>
     public static class EnemyPathfinder
     {
+        /// <summary>Đường đi khi không có X01 nào khác trên bàn.</summary>
+        public static List<GridPos> FindPathToHero(LevelData level, GridPos enemy, GridPos hero) =>
+            FindPathToHero(level, enemy, hero, Array.Empty<GridPos>());
+
         /// <summary>
-        /// Trả về các ô trên đường đi (không gồm ô xuất phát, ô cuối là ô Hero),
-        /// hoặc null nếu không có đường hợp lệ.
+        /// Trả về các ô trên đường đi (không gồm ô xuất phát, ô cuối là ô Hero), hoặc null nếu không có đường hợp lệ.
+        /// <paramref name="otherEnemies"/>: vị trí hiện tại của các X01 khác (kể cả X bị khóa), là vật cản cố định;
+        /// không giả định chúng sẽ rời đi. Ô của chính X đang tìm đường không phải vật cản.
         /// </summary>
-        public static List<GridPos> FindPathToHero(LevelData level, GridPos enemy, GridPos hero)
+        public static List<GridPos> FindPathToHero(LevelData level, GridPos enemy, GridPos hero, IReadOnlyList<GridPos> otherEnemies)
         {
             int width = level.Width;
             var previous = new int[width * level.Height];
@@ -30,8 +36,8 @@ namespace HeroEscape.Search
                 GridPos current = queue.Dequeue();
                 foreach (Direction direction in Directions.Order)
                 {
-                    // Cùng luật bước với gameplay: Tường, Cửa, góc chéo; ô Hero là đích hợp lệ và chặn góc.
-                    if (GridRules.CheckStep(level, Mover.Enemy, current, direction, hero) != StepCheck.Ok) continue;
+                    // Cùng luật bước với gameplay: Tường, Cửa, X01 khác, góc chéo; ô Hero là đích hợp lệ và chặn góc.
+                    if (GridRules.CheckStep(level, Mover.Enemy, current, direction, hero, otherEnemies) != StepCheck.Ok) continue;
 
                     GridPos next = current + direction.ToDelta();
                     int nextIndex = Index(next, width);
@@ -63,14 +69,19 @@ namespace HeroEscape.Search
     /// <summary>AI Cơ bản của X01: đi bước đầu tiên của đường BFS; không có đường thì đứng yên.</summary>
     public sealed class BasicChasePolicy : IEnemyPolicy
     {
-        public bool TryChooseStep(GameState state, out Direction direction)
+        /// <summary>Chọn bước cho X thứ <paramref name="enemyIndex"/>; các X khác là vật cản tại vị trí hiện tại.</summary>
+        public bool TryChooseStep(GameState state, int enemyIndex, out Direction direction)
         {
-            List<GridPos> path = EnemyPathfinder.FindPathToHero(state.Level, state.EnemyPos, state.HeroPos);
-            if (path != null && path.Count > 0 && Directions.TryFromDelta(path[0] - state.EnemyPos, out direction))
+            GridPos from = state.Enemies[enemyIndex].Pos;
+            List<GridPos> path = EnemyPathfinder.FindPathToHero(state.Level, from, state.HeroPos, state.EnemyCells(enemyIndex));
+            if (path != null && path.Count > 0 && Directions.TryFromDelta(path[0] - from, out direction))
                 return true;
 
             direction = default;
             return false;
         }
+
+        /// <summary>Lối tắt cho màn một X01: chọn bước cho X đầu tiên.</summary>
+        public bool TryChooseStep(GameState state, out Direction direction) => TryChooseStep(state, 0, out direction);
     }
 }

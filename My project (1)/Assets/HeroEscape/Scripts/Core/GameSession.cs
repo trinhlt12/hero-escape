@@ -36,6 +36,23 @@ namespace HeroEscape.Core
             return result;
         }
 
+        /// <summary>Dùng Stasis lên X01 đang đứng ở ô mục tiêu, trước hành động chính. Bị từ chối thì không đổi gì.</summary>
+        public SupportResult ApplyStasis(GridPos targetCell) => Commit(simulation.ApplyStasis(Current, targetCell));
+
+        /// <summary>Dùng Stasis lên X01 có ID ổn định <paramref name="enemyId"/>. Bị từ chối thì không đổi gì.</summary>
+        public SupportResult ApplyStasis(string enemyId) => Commit(simulation.ApplyStasis(Current, enemyId));
+
+        SupportResult Commit(SupportResult result)
+        {
+            if (result.Accepted)
+            {
+                Current = result.NextState;
+                Revision++;
+            }
+
+            return result;
+        }
+
         public void Restart()
         {
             Current = InitialState;

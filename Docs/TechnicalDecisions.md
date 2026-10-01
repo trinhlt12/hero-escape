@@ -63,6 +63,23 @@ Ghi chú triển khai (không đổi luật):
 - **Dash cấu hình theo level:** khóa `dash: N` trong file level (mặc định 0 = không có Dash). Bước lời giải `DASH-<hướng>`.
 - Trạng thái chọn hướng Dash là trạng thái giao diện (`TurnInputController`), không nằm trong `GameState`; số lần Dash còn lại nằm trong `GameState`.
 
+## D6 — Thẻ phụ trợ Stasis (từ Milestone 03)
+
+- Thẻ phụ trợ xử lý riêng với hành động chính: `Simulation.ApplyStasis` / `GameSession.ApplyStasis`, không chạy pha địch, không tăng vòng.
+- Tài nguyên và trạng thái thuộc Core (`GameState`): `StasisUsesLeft`, `EnemyLockPhases`, `SupportUsedThisTurn`. Chế độ chọn mục tiêu là trạng thái giao diện (`TurnInputController`).
+- Cấu hình theo level: `stasis: N` (mặc định 0). Tham số thẻ lấy theo GDD S01: tầm Chebyshev 3, cần đường nhìn, khóa 1 pha địch (hằng số trong `Simulation`).
+- Đường nhìn: `GridRules.HasLineOfSight`, supercover nguyên, đi qua góc thì xét cả hai ô cạnh; chỉ Tường chắn.
+- Lời giải trong file level: tiền tố `STASIS+` trước hành động chính của lượt (ví dụ `STASIS+DASH-N`).
+- Nút Back về màn liền trước (thay cho "luôn về Level 01" của Milestone 02; Level 02 vẫn hiển thị `Back to Level 01`).
+
+## D7 — Nhiều kẻ địch (từ Milestone 04)
+
+- `GameState.Enemies` / `LevelData.Enemies`: danh sách sắp theo `SpawnIndex`; mỗi X có ID ổn định và thời hạn khóa riêng. Thứ tự hành động chỉ lấy từ `SpawnIndex`.
+- Pha địch tuần tự: mỗi X tính BFS từ trạng thái sau X trước; X khác (kể cả bị khóa) là vật cản tại vị trí hiện tại; X bắt Hero thì dừng pha.
+- Định dạng level: `X` (cũ) = X1; `1`/`2`/`3` = X1/X2/X3 theo thứ tự. Lời giải nhiều X ghi `STASIS(<ID>)+`.
+- Stasis nhận ID mục tiêu (`ApplyStasis(state, enemyId)`); UI đổi ô được bấm thành ID của X đứng ở ô đó.
+- API một X cũ được giữ làm lối tắt tới X đầu tiên để không phải sửa Level 01–03 và test cũ.
+
 ## Lịch sử
 
 | Ngày | Thay đổi |
@@ -70,3 +87,5 @@ Ghi chú triển khai (không đổi luật):
 | 2026-10-01 | Tạo tài liệu: D1 Unity 6000.3.8f1, D2 URP 2D Unlit, D3 quản lý repo/package. |
 | 2026-10-01 | Thêm D4: quy ước tọa độ, dữ liệu level, art và chữ UI từ Milestone 01. |
 | 2026-10-01 | Thêm D5: text trong game tiếng Anh, cấu hình Dash theo level (Milestone 02). |
+| 2026-10-01 | Thêm D6: thẻ phụ trợ Stasis, đường nhìn supercover, nút Back về màn trước (Milestone 03). |
+| 2026-10-01 | Thêm D7: nhiều kẻ địch, thứ tự theo SpawnIndex, Stasis theo ID (Milestone 04). |

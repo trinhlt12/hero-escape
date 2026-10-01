@@ -52,7 +52,7 @@ namespace HeroEscape.Tests
             LevelReachability.Result r = LevelReachability.Explore(Start(), TestLevels.NewSimulation(), maxDashes: 2);
 
             Assert.AreEqual(ReachVerdict.Solved, r.Verdict);
-            Assert.That(r.Solution.Count(a => a.Kind == HeroActionKind.Dash), Is.InRange(1, 2));
+            Assert.That(r.Solution.Count(t => t.Main.Kind == HeroActionKind.Dash), Is.InRange(1, 2));
         }
 
         [Test]

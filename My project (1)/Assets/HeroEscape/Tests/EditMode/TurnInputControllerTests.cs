@@ -194,6 +194,232 @@ namespace HeroEscape.Tests
             Assert.AreEqual(2, input.Session.Current.DashUsesLeft);
         }
 
+        // ---- Stasis ----
+
+        // Hero (0,0), X01 (3,0) cách 3 ô, có đường nhìn; Dash 2, Stasis 1.
+        static TurnInputController StasisLevel(int stasis = 1) => NewInputWithStasis(stasis,
+            "....E",
+            ".....",
+            ".....",
+            ".....",
+            "H..X.");
+
+        static TurnInputController NewInputWithStasis(int stasis, params string[] rows) =>
+            new TurnInputController(new GameSession(
+                LevelParser.Parse($"id: INPUT_S\ndash: 2\nstasis: {stasis}\ngrid:\n" + string.Join("\n", rows)),
+                TestLevels.NewSimulation()));
+
+        [Test]
+        public void StasisButton_EntersTargetMode_CancelKeepsCard()
+        {
+            TurnInputController input = StasisLevel();
+            GameState before = input.Session.Current;
+
+            Assert.AreEqual(UiText.StasisPrompt, input.PressStasis().Feedback);
+            Assert.AreEqual(InputMode.ChoosingStasisTarget, input.Mode);
+            Assert.IsFalse(input.CanWait, "Wait bị vô hiệu hóa khi đang chọn mục tiêu.");
+
+            Assert.AreEqual(UiText.StasisCancelled, input.PressStasis().Feedback);
+            Assert.AreEqual(InputMode.Normal, input.Mode);
+
+            input.PressStasis();
+            Assert.AreEqual(UiText.StasisCancelled, input.Cancel().Feedback, "Escape hủy chọn Stasis.");
+            Assert.AreSame(before, input.Session.Current, "Chọn rồi hủy không tiêu hao gì.");
+        }
+
+        [Test]
+        public void StasisTargetMode_BoardClickOnlyTargets_NeverMovesHero()
+        {
+            TurnInputController input = StasisLevel();
+            input.PressStasis();
+
+            InputResponse r = input.PressBoard(false, new GridPos(1, 0)); // ô kề Hero, không có X01
+
+            Assert.IsFalse(r.Acted);
+            Assert.AreEqual(UiText.StasisError(ActionError.NoEnemyAtTarget), r.Feedback);
+            Assert.AreEqual(new GridPos(0, 0), input.Session.Current.HeroPos);
+            Assert.AreEqual(1, input.Session.Current.StasisUsesLeft);
+            Assert.AreEqual(InputMode.ChoosingStasisTarget, input.Mode, "Mục tiêu sai giữ chế độ chọn.");
+        }
+
+        [Test]
+        public void StasisTargetMode_ClickOnUi_DoesNothing()
+        {
+            TurnInputController input = StasisLevel();
+            input.PressStasis();
+            GameState before = input.Session.Current;
+
+            InputResponse r = input.PressBoard(pointerOverUi: true, cell: new GridPos(3, 0));
+
+            Assert.IsNull(r.Feedback);
+            Assert.AreSame(before, input.Session.Current);
+            Assert.AreEqual(InputMode.ChoosingStasisTarget, input.Mode);
+        }
+
+        [Test]
+        public void ClickingX01_AppliesStasis_ThenHeroStillActs_AndEnemySkips()
+        {
+            TurnInputController input = StasisLevel();
+            input.PressStasis();
+
+            InputResponse applied = input.PressBoard(false, new GridPos(3, 0));
+
+            Assert.IsFalse(applied.Acted, "Stasis không phải hành động chính.");
+            Assert.AreEqual(UiText.StasisApplied, applied.Feedback);
+            Assert.AreEqual(InputMode.Normal, input.Mode);
+            GameState s = input.Session.Current;
+            Assert.AreEqual(0, s.StasisUsesLeft);
+            Assert.IsTrue(s.EnemyLocked);
+            Assert.AreEqual(1, s.Round);
+            Assert.IsTrue(input.CanWait, "Sau Stasis vẫn được Move/Wait/Dash.");
+            Assert.IsTrue(input.CanPressDash);
+            Assert.IsFalse(input.CanPressStasis, "Hết thẻ thì nút Stasis bị vô hiệu hóa.");
+
+            InputResponse move = input.PressBoard(false, new GridPos(0, 1));
+            Assert.IsTrue(move.Acted);
+            Assert.AreEqual(1, move.Turn.Events.Count(e => e.Kind == RuleEventKind.EnemySkipped));
+            Assert.AreEqual(new GridPos(3, 0), input.Session.Current.EnemyPos);
+        }
+
+        [Test]
+        public void OutOfRangeOrBlockedTarget_GivesFeedback_AndKeepsMode()
+        {
+            TurnInputController far = NewInputWithStasis(1,
+                "....E",
+                ".....",
+                ".....",
+                ".....",
+                "H...X");
+            far.PressStasis();
+            Assert.AreEqual(UiText.StasisError(ActionError.TargetOutOfRange), far.PressBoard(false, new GridPos(4, 0)).Feedback);
+            Assert.AreEqual(InputMode.ChoosingStasisTarget, far.Mode);
+
+            TurnInputController blocked = NewInputWithStasis(1,
+                "....E",
+                ".....",
+                ".....",
+                ".....",
+                "H#X..");
+            blocked.PressStasis();
+            Assert.AreEqual(UiText.StasisError(ActionError.NoLineOfSight), blocked.PressBoard(false, new GridPos(2, 0)).Feedback);
+            Assert.AreEqual(1, blocked.Session.Current.StasisUsesLeft);
+        }
+
+        [Test]
+        public void DashAndStasisSelection_AreMutuallyExclusive()
+        {
+            TurnInputController input = StasisLevel();
+
+            input.PressDash();
+            input.PressStasis();
+            Assert.AreEqual(InputMode.ChoosingStasisTarget, input.Mode, "Chọn Stasis hủy chọn hướng Dash.");
+
+            input.PressDash();
+            Assert.AreEqual(InputMode.ChoosingDashDirection, input.Mode, "Chọn Dash hủy chọn Stasis chưa áp dụng.");
+            Assert.AreEqual(1, input.Session.Current.StasisUsesLeft);
+            Assert.IsFalse(input.Session.Current.EnemyLocked);
+            Assert.AreEqual(2, input.Session.Current.DashUsesLeft);
+        }
+
+        [Test]
+        public void CancellingDashAfterStasis_DoesNotUndoStasis()
+        {
+            TurnInputController input = StasisLevel();
+            input.PressStasis();
+            input.PressBoard(false, new GridPos(3, 0));
+
+            input.PressDash();
+            input.Cancel();
+
+            Assert.AreEqual(InputMode.Normal, input.Mode);
+            Assert.AreEqual(0, input.Session.Current.StasisUsesLeft);
+            Assert.IsTrue(input.Session.Current.EnemyLocked);
+        }
+
+        [Test]
+        public void StasisButton_Disabled_AfterSupportUsedThisTurn_EvenWithUsesLeft()
+        {
+            TurnInputController input = StasisLevel(stasis: 2);
+            input.PressStasis();
+            input.PressBoard(false, new GridPos(3, 0));
+
+            Assert.AreEqual(1, input.Session.Current.StasisUsesLeft);
+            Assert.IsFalse(input.CanPressStasis);
+            Assert.AreEqual(UiText.SupportAlreadyUsed, input.PressStasis().Feedback);
+            Assert.AreEqual(InputMode.Normal, input.Mode);
+        }
+
+        [Test]
+        public void LevelWithoutStasis_HasNoStasisButton()
+        {
+            TurnInputController input = DashLevel();
+
+            Assert.IsFalse(input.LevelHasStasis);
+            Assert.IsFalse(input.CanPressStasis);
+            Assert.IsNull(input.PressStasis().Feedback);
+            Assert.AreEqual(InputMode.Normal, input.Mode);
+        }
+
+        [Test]
+        public void Restart_ClearsStasisModeLockAndResources()
+        {
+            TurnInputController input = StasisLevel();
+            input.PressStasis();
+            input.PressBoard(false, new GridPos(3, 0));
+            input.PressDash();
+
+            input.Restart();
+
+            Assert.AreEqual(InputMode.Normal, input.Mode);
+            Assert.AreEqual(input.Session.InitialState, input.Session.Current);
+            Assert.AreEqual(1, input.Session.Current.StasisUsesLeft);
+            Assert.AreEqual(2, input.Session.Current.DashUsesLeft);
+            Assert.IsFalse(input.Session.Current.EnemyLocked);
+            Assert.IsFalse(input.Session.Current.SupportUsedThisTurn);
+
+            input.PressStasis();
+            input.Restart();
+            Assert.AreEqual(InputMode.Normal, input.Mode, "Restart xóa chế độ chọn Stasis.");
+        }
+
+        [TestCase(2, 0, "X2")] // bấm X2 ở (2,0)
+        [TestCase(0, 2, "X1")] // bấm X1 ở (0,2)
+        public void TwoEnemies_ClickedEnemyIsTheOnlyOneLocked(int x, int y, string expectedId)
+        {
+            TurnInputController input = NewInputWithStasis(1,
+                "....E",
+                ".....",
+                "1....",
+                ".....",
+                "H.2..");
+            input.PressStasis();
+
+            InputResponse r = input.PressBoard(false, new GridPos(x, y));
+
+            Assert.AreEqual(UiText.StasisApplied, r.Feedback);
+            foreach (EnemyState enemy in input.Session.Current.Enemies)
+                Assert.AreEqual(enemy.Id == expectedId, enemy.Locked, enemy.Id);
+        }
+
+        [Test]
+        public void TwoEnemies_ClickOnEmptyCell_KeepsTargetMode()
+        {
+            TurnInputController input = NewInputWithStasis(1,
+                "....E",
+                ".....",
+                "1....",
+                ".....",
+                "H.2..");
+            input.PressStasis();
+
+            InputResponse r = input.PressBoard(false, new GridPos(1, 1));
+
+            Assert.AreEqual(UiText.StasisError(ActionError.NoEnemyAtTarget), r.Feedback);
+            Assert.AreEqual(InputMode.ChoosingStasisTarget, input.Mode);
+            Assert.IsTrue(input.Session.Current.Enemies.All(e => !e.Locked));
+            Assert.AreEqual(1, input.Session.Current.StasisUsesLeft);
+        }
+
         [Test]
         public void EnteringLevel_CreatesFreshStateAndInput()
         {
