@@ -1,0 +1,84 @@
+# .gitignore cho project Unity tại "My project (1)/".
+# Đường dẫn bắt đầu bằng "/" tính từ thư mục này (gốc project Unity),
+# nên không ảnh hưởng tới thư mục cùng tên nằm trong Assets/.
+#
+# Không ignore Packages/: manifest.json và packages-lock.json phải được commit.
+# Không ignore *.dll hoặc thư mục Debug/Release/x64...: plugin trong Assets là asset hợp lệ.
+# Không ignore *.meta của asset: GUID trong .meta giữ liên kết asset.
+
+### Unity: thư mục sinh tự động
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emory[Cc]aptures/
+/[Rr]ecordings/
+/.utmp/
+
+# Output build và test
+/[Bb]uild/
+/[Bb]uilds/
+/[Tt]est[Rr]esults/
+/[Tt]est[Rr]esults*.xml
+
+# Plugin Rider do Unity tự tạo (bản cũ)
+/[Aa]ssets/Plugins/Editor/JetBrains*
+
+# Addressables build cache (nếu sau này dùng)
+/[Aa]ssets/[Ss]treaming[Aa]ssets/aa.meta
+/[Aa]ssets/[Ss]treaming[Aa]ssets/aa/*
+
+### Solution/project do Unity và IDE sinh lại
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# .meta của các file debug ở trên
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+### Báo cáo crash và file tạm của Unity
+sysinfo.txt
+mono_crash.*
+crashlytics-build.properties
+
+### Gói build/xuất (không phải asset nguồn)
+*.apk
+*.aab
+*.app
+*.unitypackage
+*.unitypackage.meta
+
+### IDE
+/.vs/
+/.idea/
+*.sln.iml
+/.consulo/
+/.gradle/
+/ExportedObj/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### Hệ điều hành
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+.DS_Store

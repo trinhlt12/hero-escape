@@ -1,0 +1,13 @@
+# .gitignore gốc repo. Quy tắc của project Unity nằm trong "My project (1)/.gitignore".
+
+# File khóa tạm của Word/Excel khi đang mở tài liệu trong Docs/
+~$*
+
+# IDE ở gốc repo
+/.vs/
+/.idea/
+
+# Hệ điều hành
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store
