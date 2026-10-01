@@ -1,0 +1,370 @@
+fileFormatVersion: 2
+guid: f286a6c2b27b028499a0babe39e85007
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -1148375302221337208
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_0"
+  - first:
+      213: 2262168766710051347
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_1"
+  - first:
+      213: 5358063533914268250
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_2"
+  - first:
+      213: -6989133516971311139
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_3"
+  - first:
+      213: -4571580668729225057
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_4"
+  - first:
+      213: -6497428488872084806
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_5"
+  - first:
+      213: -2436390250327557203
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_6"
+  - first:
+      213: 535842022245103263
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_7"
+  - first:
+      213: -1219275828607821094
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_8"
+  - first:
+      213: -8769448552260396700
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_9"
+  - first:
+      213: 971012697920378818
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_10"
+  - first:
+      213: -3880081145690517191
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_11"
+  - first:
+      213: 1345145343866015077
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_12"
+  - first:
+      213: -1257760839605461034
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_13"
+  - first:
+      213: -8828970563208484840
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_14"
+  - first:
+      213: -6716354226876515113
+    second: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_15"
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: tile_floor
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 576
+        width: 301
+        height: 292
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 88de34a3fb62010f0800000000000000
+      internalID: -1148375302221337208
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tile_wall
+      rect:
+        serializedVersion: 2
+        x: 432
+        y: 575
+        width: 301
+        height: 293
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 3127cb10286d46f10800000000000000
+      internalID: 2262168766710051347
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tile_exit
+      rect:
+        serializedVersion: 2
+        x: 798
+        y: 573
+        width: 320
+        height: 304
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f9675afea71bf6700800000000000000
+      internalID: 535842022245103263
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: hero_h01
+      rect:
+        serializedVersion: 2
+        x: 417
+        y: 90
+        width: 342
+        height: 422
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 46994761109ac4680800000000000000
+      internalID: -8769448552260396700
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tile_temp_wall
+      rect:
+        serializedVersion: 2
+        x: 1187
+        y: 592
+        width: 289
+        height: 268
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2c710f377eab97d00800000000000000
+      internalID: 971012697920378818
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_13"
+      rect:
+        serializedVersion: 2
+        x: 49
+        y: 101
+        width: 321
+        height: 404
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6df5be62e298b8ee0800000000000000
+      internalID: -1257760839605461034
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: enemy_x01
+      rect:
+        serializedVersion: 2
+        x: 807
+        y: 99
+        width: 296
+        height: 333
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 818e397fc02397580800000000000000
+      internalID: -8828970563208484840
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_15"
+      rect:
+        serializedVersion: 2
+        x: 1169
+        y: 103
+        width: 330
+        height: 326
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7dcf4595a67bac2a0800000000000000
+      internalID: -6716354226876515113
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 3cd680ba2a282e540b0ef3a2c62248db
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_11": -3880081145690517191
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_12": 1345145343866015077
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_13": -1257760839605461034
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_15": -6716354226876515113
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_2": 5358063533914268250
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_3": -6989133516971311139
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_4": -4571580668729225057
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_5": -6497428488872084806
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_6": -2436390250327557203
+      "T\xE1m t\xE0i s\u1EA3n Hero Escape ph\u1EA7n 3_8": -1219275828607821094
+      enemy_x01: -8828970563208484840
+      hero_h01: -8769448552260396700
+      tile_exit: 535842022245103263
+      tile_floor: -1148375302221337208
+      tile_temp_wall: 971012697920378818
+      tile_wall: 2262168766710051347
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

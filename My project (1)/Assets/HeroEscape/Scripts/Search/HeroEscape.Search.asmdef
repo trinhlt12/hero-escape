@@ -1,0 +1,16 @@
+{
+    "name": "HeroEscape.Search",
+    "rootNamespace": "HeroEscape.Search",
+    "references": [
+        "HeroEscape.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

@@ -1,0 +1,21 @@
+// Hero Escape - Màn thử Milestone 01.
+// KHÔNG phải một trong 12 màn chính thức của GDD.
+//
+// Ký hiệu lưới: .  Sàn | #  Tường | E  Cửa thoát | H  Hero (đứng trên Sàn) | X  X01 (đứng trên Sàn)
+// Dòng đầu của lưới là hàng trên cùng. Gốc (0,0) ở góc dưới trái; x tăng sang phải, y tăng lên trên (N = y + 1).
+// Dấu cách giữa các ô chỉ để dễ đọc.
+//
+// Sửa vị trí Tường, Hero, X01 hoặc Cửa ngay trong lưới. Sau khi sửa, cập nhật "solution" và chạy
+// Test Runner (EditMode) để xác nhận chuỗi nước đi vẫn dẫn đến thắng.
+
+id: M01_TEST
+
+grid:
+# . . . E
+. . # . .
+. X . # .
+. . # . .
+H . . . .
+
+// Chuỗi nước đi thắng tham chiếu (N NE E SE S SW W NW hoặc WAIT), đã kiểm chứng bằng test.
+solution: E E E NE N N N

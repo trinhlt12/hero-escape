@@ -11,6 +11,7 @@ Thứ tự ưu tiên khi có mâu thuẫn:
 3. **`Docs/TDD_Hero_Escape_Prototype_v0_1.docx`**: kiến trúc, dữ liệu, AI, preview/Undo, solver, Git, kiểm thử. Áp dụng đầy đủ, **trừ** hai điểm đã bị thay ở mục 1.
 4. **`Docs/Art_Guide_Hero_Escape_Prototype_v0_2 (1).docx`**: manifest 26 PNG, quy cách import, hiển thị trạng thái.
 5. **`Docs/Environment.md`**: phiên bản công cụ thực tế và kết quả kiểm tra môi trường (Passed / Failed / Not run).
+6. **`Docs/Milestone01.md`**: phạm vi khóa và tiến độ của milestone hiện tại. Không triển khai tính năng ngoài phạm vi milestone khi chưa có yêu cầu mới.
 
 File `.docx` là nhị phân. Muốn đọc, giải nén `word/document.xml` (PowerShell `System.IO.Compression`) vào scratchpad, giữ cả các bảng. Không tự đoán nội dung tài liệu.
 
@@ -23,7 +24,10 @@ File `.docx` là nhị phân. Muốn đọc, giải nén `word/document.xml` (Po
 ## Cấu trúc repo
 
 - Project Unity: `My project (1)/` (gồm Assets, Packages, ProjectSettings). **Không đổi tên thư mục này** khi chưa có quyết định.
-- Code dự án theo TDD mục 13: `My project (1)/Assets/HeroEscape/` với các assembly `HeroEscape.Core` (không tham chiếu UnityEngine), `.Search`, `.Unity`, `.Editor`, `.Tests`.
+- Code dự án theo TDD mục 13: `My project (1)/Assets/HeroEscape/`:
+  - `Scripts/Core` (`HeroEscape.Core`, không tham chiếu UnityEngine), `Scripts/Search`, `Scripts/Unity`, `Scripts/Editor`
+  - `Tests/EditMode`, `Data/Levels`, `Scenes`
+- Art: `My project (1)/Assets/Art/` (Sprite asset cắt từ `artboard.png`). Không di chuyển, đổi tên hay ghi đè art gốc.
 - Tài liệu: `Docs/`.
 - `.gitignore` của Unity nằm tại `My project (1)/.gitignore`. `.gitignore` và `.gitattributes` (LFS) nằm ở gốc repo.
 

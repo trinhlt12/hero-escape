@@ -48,8 +48,18 @@ Ghi chú triển khai (không đổi luật):
 - **Chưa gỡ hoặc nâng cấp package.** Các package thừa so với danh sách tối thiểu của TDD (2D animation/aseprite/psdimporter/spriteshape/tilemap, visualscripting, timeline, collab-proxy, multiplayer.center, ide.visualstudio) được giữ nguyên cho đến khi có quyết định riêng.
 - `.gitignore` của project nằm tại `My project (1)/.gitignore`; `Packages/manifest.json` và `Packages/packages-lock.json` phải được commit. `.gitattributes` ở gốc repo quy định LFS cho nguồn nhị phân lớn; script, scene, prefab, asset YAML và `.meta` luôn là text, không vào LFS.
 
+## D4 — Quy ước triển khai từ Milestone 01
+
+Áp dụng từ Milestone 01 (`Docs/Milestone01.md`). Không đổi luật GDD.
+
+- **Tọa độ:** `GridPos(X, Y)`, gốc (0,0) ở góc dưới trái, X tăng sang phải, Y tăng lên trên; **N = Y + 1**. Thứ tự hướng phá hòa: N, NE, E, SE, S, SW, W, NW. Quy ước này thay cách ghi row/col của TDD mục 6; ý nghĩa hướng giữ nguyên.
+- **Dữ liệu level M01:** file text (`.txt`, đọc bằng `LevelParser` trong Core). Quyết định ScriptableObject của TDD mục 2/4 được xem lại khi có nhiều màn.
+- **Art M01:** 5 Sprite asset trong `Assets/Art` (cắt từ `artboard.png`), không phải PNG riêng như manifest Art Guide; scale hiển thị tính trong `BoardView`, không đổi PPU/GUID.
+- **Chữ UI tạm:** `UnityEngine.UI.Text` + font tích hợp `LegacyRuntime.ttf` cho tới khi có font tiếng Việt được bàn giao (Art Guide mục 6).
+
 ## Lịch sử
 
 | Ngày | Thay đổi |
 |---|---|
 | 2026-10-01 | Tạo tài liệu: D1 Unity 6000.3.8f1, D2 URP 2D Unlit, D3 quản lý repo/package. |
+| 2026-10-01 | Thêm D4: quy ước tọa độ, dữ liệu level, art và chữ UI từ Milestone 01. |
