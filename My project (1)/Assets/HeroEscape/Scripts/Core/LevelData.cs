@@ -11,6 +11,13 @@ namespace HeroEscape.Core
         Exit = 2,
     }
 
+    /// <summary>Profile AI của các X01 trong màn. Màn cũ không khai báo thì dùng Basic.</summary>
+    public enum AiProfile
+    {
+        Basic,
+        Tactical,
+    }
+
     public sealed class LevelFormatException : Exception
     {
         public LevelFormatException(string message) : base(message) { }
@@ -51,6 +58,9 @@ namespace HeroEscape.Core
         /// <summary>Số lần dùng thẻ Stasis trong một lần chơi màn này. 0 = màn không có Stasis.</summary>
         public int StasisMaxUses { get; }
 
+        /// <summary>Profile AI của các X01 (dữ liệu cấu hình theo level, mặc định Basic).</summary>
+        public AiProfile AiProfile { get; }
+
         /// <summary>Lượt (đánh số từ 0 theo <see cref="ReferenceSolution"/>) dùng Stasis → ID X01 mục tiêu.</summary>
         public IReadOnlyDictionary<int, string> ReferenceStasisTargets { get; }
 
@@ -69,7 +79,7 @@ namespace HeroEscape.Core
 
         public LevelData(string id, int width, int height, CellType[] cells, GridPos heroStart, IReadOnlyList<EnemySpawn> enemies,
             IReadOnlyList<HeroAction> referenceSolution, int dashMaxUses, int stasisMaxUses,
-            IReadOnlyDictionary<int, string> referenceStasisTargets)
+            IReadOnlyDictionary<int, string> referenceStasisTargets, AiProfile aiProfile = AiProfile.Basic)
         {
             if (string.IsNullOrWhiteSpace(id)) throw new LevelFormatException("Level thiếu id.");
             if (width < MinSize || width > MaxSize || height < MinSize || height > MaxSize)
@@ -88,6 +98,7 @@ namespace HeroEscape.Core
             HeroStart = heroStart;
             DashMaxUses = dashMaxUses;
             StasisMaxUses = stasisMaxUses;
+            AiProfile = aiProfile;
             ReferenceSolution = referenceSolution ?? Array.Empty<HeroAction>();
 
             int exitCount = 0;

@@ -1,6 +1,6 @@
 # Milestone 05 — Highlight lựa chọn hợp lệ, hover preview, Dash chọn ô đích
 
-Ngày: 2026-10-01 • Trạng thái: **Đã có code và test; chờ dựng lại scene và kiểm tra trực quan trong Play Mode**
+Ngày: 2026-10-01 • Trạng thái: **Hoàn thành.** Game Designer đã playtest Level 01–04 với highlight/hover preview thành công (báo cáo 2026-10-01). Bảng mục 5 giữ nguyên kết quả do Claude ghi lúc bàn giao.
 
 Áp dụng cho Level 01–04 (đã được Game Designer playtest thành công trước task này). Không đổi bố cục, tài nguyên, AI hay luật gameplay của các màn. Không thêm màn, kỹ năng, thẻ hoặc quái mới.
 

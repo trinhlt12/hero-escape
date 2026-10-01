@@ -9,6 +9,8 @@ namespace HeroEscape.Unity
         public const string WaitButton = "Wait";
         public const string RestartButton = "Restart";
         public const string NextLevelButton = "Next Level";
+        public const string LevelSelectButton = "Level Select";
+        public const string SelectLevelTitle = "Select Level";
 
         public const string HintBasic =
             "Click a highlighted tile to move. Hover it to preview the enemy turn.\nPress Wait to stay. Reach the exit and don't let X01 catch you.";
@@ -59,6 +61,10 @@ namespace HeroEscape.Unity
         public static string EnemyOrder(int order) => order.ToString();
 
         public static string LevelTitle(string levelName) => $"{GameName} · {levelName}";
+        public const string TacticalLabel = "Tactical";
+        public static string LevelTitleTactical(string levelName) => $"{GameName} · {levelName} · {TacticalLabel}";
+        public const string HintTactical =
+            "Tactical: X01 looks one turn ahead and tries to cut off your escape.\nDash moves 2 tiles. Stasis freezes the enemy you click.";
         public static string YourTurn(int round) => $"Round {round} · {YourTurnSuffix}";
         public static string DashButton(int usesLeft, int maxUses) => $"Dash ({usesLeft}/{maxUses})";
         public static string StasisButton(int usesLeft, int maxUses) => $"Stasis ({usesLeft}/{maxUses})";
@@ -114,14 +120,14 @@ namespace HeroEscape.Unity
             get
             {
                 var text = new System.Text.StringBuilder();
-                text.Append(LevelTitle("Level 0123456789")).Append(WaitButton).Append(RestartButton).Append(NextLevelButton)
+                text.Append(LevelTitle("Level 0123456789")).Append(WaitButton).Append(RestartButton).Append(NextLevelButton).Append(LevelSelectButton).Append(SelectLevelTitle)
                     .Append(HintBasic).Append(HintDash).Append(YourTurn(1234567890)).Append(EnemyTurn).Append(Won).Append(Lost)
                     .Append(WonNext).Append(WonLast).Append(PressRestart).Append(Restarted).Append(EnemyStayed).Append(LevelError)
                     .Append(ClickHero).Append(NotAdjacent).Append(DashPrompt).Append(DashPickTarget).Append(WillBeCaught).Append(WillEscape).Append(WillBeFrozen).Append(DashCancelled)
                     .Append(NoDashUsesLeft).Append(DashButton(2, 2)).Append(BackToButton("Level 01"))
                     .Append(HintStasis).Append(StasisPrompt).Append(StasisCancelled).Append(StasisApplied).Append(NoStasisUsesLeft)
                     .Append(SupportAlreadyUsed).Append(EnemySkipped).Append(FrozenLabel).Append(StasisButton(1, 1))
-                    .Append(HintMultiEnemy).Append(EnemyOrder(1234567890));
+                    .Append(HintMultiEnemy).Append(LevelTitleTactical("Level 05")).Append(HintTactical).Append(EnemyOrder(1234567890));
                 foreach (ActionError error in (ActionError[])System.Enum.GetValues(typeof(ActionError)))
                     text.Append(MoveError(error)).Append(DashError(error, 2)).Append(StasisError(error));
                 return text.ToString();

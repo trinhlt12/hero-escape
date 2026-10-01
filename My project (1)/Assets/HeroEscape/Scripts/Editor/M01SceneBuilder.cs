@@ -22,25 +22,32 @@ namespace HeroEscape.EditorTools
         public const string ScenePath = "Assets/HeroEscape/Scenes/M01_TestLevel.unity";
         public const string UnlitMaterialPath = "Packages/com.unity.render-pipelines.universal/Runtime/Materials/Sprite-Unlit-Default.mat";
 
-        /// <summary>Chuỗi màn trong scene chơi thử: tên hiển thị (tiếng Anh) và file level.</summary>
-        public static readonly (string displayName, string path)[] Levels =
+        public const string LevelSelectScenePath = "Assets/HeroEscape/Scenes/LevelSelect.unity";
+        public const string CatalogPath = "Assets/HeroEscape/Data/LevelCatalog.asset";
+
+        /// <summary>
+        /// Nội dung khởi tạo của LevelCatalog khi chưa có asset: tên hiển thị, mô tả (tiếng Anh) và file level.
+        /// ID của mỗi màn lấy từ dòng 'id:' trong file level. Catalog đã tồn tại thì không bị ghi đè.
+        /// </summary>
+        public static readonly (string displayName, string description, string path)[] Levels =
         {
-            ("Level 01", "Assets/HeroEscape/Data/Levels/M01_TestLevel.txt"),
-            ("Level 02", "Assets/HeroEscape/Data/Levels/M02_DashLevel.txt"),
-            ("Level 03", "Assets/HeroEscape/Data/Levels/M03_StasisLevel.txt"),
-            ("Level 04", "Assets/HeroEscape/Data/Levels/M04_TwoEnemiesLevel.txt"),
+            ("Level 01", "Basic Movement", "Assets/HeroEscape/Data/Levels/M01_TestLevel.txt"),
+            ("Level 02", "Dash", "Assets/HeroEscape/Data/Levels/M02_DashLevel.txt"),
+            ("Level 03", "Stasis", "Assets/HeroEscape/Data/Levels/M03_StasisLevel.txt"),
+            ("Level 04", "Two Enemies", "Assets/HeroEscape/Data/Levels/M04_TwoEnemiesLevel.txt"),
+            ("Level 05", "Tactical Enemy", "Assets/HeroEscape/Data/Levels/M05_TacticalLevel.txt"),
         };
 
         // Bảng màu theo Art Guide mục 2.
-        static readonly Color Background = new Color32(0x17, 0x24, 0x2C, 0xFF);
-        static readonly Color Panel = new Color32(0x0F, 0x19, 0x1F, 0xF2);
-        static readonly Color HeroBlue = new Color32(0x24, 0x7F, 0xAD, 0xFF);
-        static readonly Color Neutral = new Color32(0x52, 0x63, 0x6E, 0xFF);
-        static readonly Color Highlight = new Color32(0xE8, 0xB8, 0x49, 0xFF);
-        static readonly Color ExitGreen = new Color32(0x26, 0x73, 0x4D, 0xFF);
-        static readonly Color SoftText = new Color32(0xC8, 0xD3, 0xD9, 0xFF);
-        static readonly Color StasisPurple = new Color32(0x71, 0x4D, 0x9A, 0xFF);
-        static readonly Color FrozenCyan = new Color32(0x9F, 0xE0, 0xF5, 0xFF);
+        internal static readonly Color Background = new Color32(0x17, 0x24, 0x2C, 0xFF);
+        internal static readonly Color Panel = new Color32(0x0F, 0x19, 0x1F, 0xF2);
+        internal static readonly Color HeroBlue = new Color32(0x24, 0x7F, 0xAD, 0xFF);
+        internal static readonly Color Neutral = new Color32(0x52, 0x63, 0x6E, 0xFF);
+        internal static readonly Color Highlight = new Color32(0xE8, 0xB8, 0x49, 0xFF);
+        internal static readonly Color ExitGreen = new Color32(0x26, 0x73, 0x4D, 0xFF);
+        internal static readonly Color SoftText = new Color32(0xC8, 0xD3, 0xD9, 0xFF);
+        internal static readonly Color StasisPurple = new Color32(0x71, 0x4D, 0x9A, 0xFF);
+        internal static readonly Color FrozenCyan = new Color32(0x9F, 0xE0, 0xF5, 0xFF);
 
         // Kích thước UI theo canvas tham chiếu 1080 x 1920.
         const float TopPanelHeight = 300f;
@@ -61,19 +68,17 @@ namespace HeroEscape.EditorTools
                 return;
             }
 
-            var levelFiles = new TextAsset[Levels.Length];
-            string missing = string.Empty;
-            for (int i = 0; i < Levels.Length; i++)
+            LevelCatalog catalog = EnsureCatalog(out string catalogError);
+            if (catalog == null)
             {
-                levelFiles[i] = AssetDatabase.LoadAssetAtPath<TextAsset>(Levels[i].path);
-                if (levelFiles[i] == null) missing += Levels[i].path + "\n";
+                Info(catalogError);
+                return;
             }
 
             var unlitMaterial = AssetDatabase.LoadAssetAtPath<Material>(UnlitMaterialPath);
-            if (unlitMaterial == null) missing += UnlitMaterialPath;
-            if (missing.Length > 0)
+            if (unlitMaterial == null)
             {
-                Info("Không tìm thấy:\n" + missing);
+                Info("Không tìm thấy:\n" + UnlitMaterialPath);
                 return;
             }
 
@@ -94,7 +99,9 @@ namespace HeroEscape.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            GameController controller = Populate(art, levelFiles, unlitMaterial);
+            // NewScene (Single) giải phóng asset không còn được dùng, kể cả catalog nạp trước đó: nạp lại sau khi tạo scene.
+            catalog = ReloadCatalog();
+            GameController controller = Populate(art, catalog, unlitMaterial);
 
             EnsureFolder(Path.GetDirectoryName(ScenePath));
             if (!EditorSceneManager.SaveScene(scene, ScenePath))
@@ -103,8 +110,94 @@ namespace HeroEscape.EditorTools
                 return;
             }
 
+            EnsureBuildSettings();
             Selection.activeObject = controller.gameObject;
-            Debug.Log($"[M01] Đã dựng {ScenePath}. Bấm Play để chơi thử.");
+            Debug.Log($"[M01] Đã dựng {ScenePath}. Mở {LevelSelectScenePath} để chạy toàn bộ luồng, hoặc bấm Play ở scene này (mở màn mặc định).");
+        }
+
+        /// <summary>
+        /// Trả về LevelCatalog dùng chung. Chưa có thì tạo từ <see cref="Levels"/> (ID đọc từ file level).
+        /// Đã có thì giữ nguyên, không ghi đè chỉnh sửa của người dùng.
+        /// </summary>
+        internal static LevelCatalog EnsureCatalog(out string error)
+        {
+            error = null;
+            var existing = AssetDatabase.LoadAssetAtPath<LevelCatalog>(CatalogPath);
+            if (existing != null)
+            {
+                if (existing.Levels.Count == 0) error = $"{CatalogPath} không có màn nào. Sửa catalog hoặc xóa để tạo lại.";
+                return error == null ? existing : null;
+            }
+
+            var files = new TextAsset[Levels.Length];
+            var ids = new string[Levels.Length];
+            for (int i = 0; i < Levels.Length; i++)
+            {
+                files[i] = AssetDatabase.LoadAssetAtPath<TextAsset>(Levels[i].path);
+                if (files[i] == null)
+                {
+                    error = "Không tìm thấy:\n" + Levels[i].path;
+                    return null;
+                }
+
+                try
+                {
+                    ids[i] = HeroEscape.Core.LevelParser.Parse(files[i].text).Id;
+                }
+                catch (HeroEscape.Core.LevelFormatException e)
+                {
+                    error = $"{Levels[i].path} không hợp lệ: {e.Message}";
+                    return null;
+                }
+            }
+
+            var catalog = ScriptableObject.CreateInstance<LevelCatalog>();
+            var so = new SerializedObject(catalog);
+            SerializedProperty levels = so.FindProperty("levels");
+            levels.arraySize = Levels.Length;
+            for (int i = 0; i < Levels.Length; i++)
+            {
+                SerializedProperty entry = levels.GetArrayElementAtIndex(i);
+                entry.FindPropertyRelative("id").stringValue = ids[i];
+                entry.FindPropertyRelative("displayName").stringValue = Levels[i].displayName;
+                entry.FindPropertyRelative("description").stringValue = Levels[i].description;
+                entry.FindPropertyRelative("levelFile").objectReferenceValue = files[i];
+            }
+
+            so.FindProperty("defaultLevelId").stringValue = ids[0];
+            so.FindProperty("gameplayScene").stringValue = Path.GetFileNameWithoutExtension(ScenePath);
+            so.FindProperty("levelSelectScene").stringValue = Path.GetFileNameWithoutExtension(LevelSelectScenePath);
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EnsureFolder(Path.GetDirectoryName(CatalogPath));
+            AssetDatabase.CreateAsset(catalog, CatalogPath);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[M01] Đã tạo {CatalogPath} với {Levels.Length} màn.");
+            return catalog;
+        }
+
+        /// <summary>
+        /// Nạp lại catalog từ đĩa. Gọi SAU <c>EditorSceneManager.NewScene</c>: tạo scene mới ở chế độ Single giải phóng
+        /// các asset không còn được tham chiếu, làm object catalog nạp trước đó thành rỗng khi gán vào scene.
+        /// </summary>
+        internal static LevelCatalog ReloadCatalog()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<LevelCatalog>(CatalogPath);
+            if (catalog == null) throw new InvalidOperationException($"[M01] Không nạp được {CatalogPath} sau khi tạo scene mới.");
+            return catalog;
+        }
+
+        /// <summary>
+        /// Build Settings: LevelSelect (nếu đã có) đứng đầu, rồi gameplay scene; giữ nguyên các scene khác và trạng thái bật/tắt của chúng.
+        /// </summary>
+        internal static void EnsureBuildSettings()
+        {
+            var result = new System.Collections.Generic.List<EditorBuildSettingsScene>();
+            if (File.Exists(LevelSelectScenePath)) result.Add(new EditorBuildSettingsScene(LevelSelectScenePath, true));
+            if (File.Exists(ScenePath)) result.Add(new EditorBuildSettingsScene(ScenePath, true));
+            foreach (EditorBuildSettingsScene scene in EditorBuildSettings.scenes)
+                if (scene.path != LevelSelectScenePath && scene.path != ScenePath) result.Add(scene);
+            EditorBuildSettings.scenes = result.ToArray();
         }
 
         [MenuItem(MenuRoot + "Mở scene chơi thử", priority = 1)]
@@ -120,7 +213,7 @@ namespace HeroEscape.EditorTools
                 EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
         }
 
-        static GameController Populate(M01ArtCheck.ArtSet art, TextAsset[] levelFiles, Material unlitMaterial)
+        static GameController Populate(M01ArtCheck.ArtSet art, LevelCatalog catalog, Material unlitMaterial)
         {
             // Camera
             var cameraGo = new GameObject("Main Camera") { tag = "MainCamera" };
@@ -169,9 +262,11 @@ namespace HeroEscape.EditorTools
             RectTransform bottom = CreatePanel("BottomPanel", safeArea, new Vector2(0f, 0f), new Vector2(1f, 0f), BottomPanelHeight);
             Text hint = CreateText("Hint", bottom, 32, SoftText, FontStyle.Normal, new Vector2(40f, -170f), new Vector2(-40f, -40f),
                 UiText.HintBasic);
+            // Hàng điều hướng có tối đa 3 nút: 240 + 330 + 260 + 2 x 30 = 890 (vừa vùng 1000).
             RectTransform navRow = CreateButtonRow("NavigationRow", bottom, 200f, 30f);
-            Button next = CreateButton("NextLevelButton", navRow, ExitGreen, 420f, UiText.NextLevelButton, 46);
-            Button back = CreateButton("BackButton", navRow, Neutral, 480f, UiText.BackToButton(Levels[0].displayName), 46);
+            Button next = CreateButton("NextLevelButton", navRow, ExitGreen, 240f, UiText.NextLevelButton, 36);
+            Button back = CreateButton("BackButton", navRow, Neutral, 330f, UiText.BackToButton(Levels[0].displayName), 36);
+            Button levelSelect = CreateButton("LevelSelectButton", navRow, Neutral, 260f, UiText.LevelSelectButton, 36);
             // Hàng hành động có tối đa 4 nút: tổng 940 + 3 x 20 = 1000 (vừa chiều rộng 1080 - 2 x 40).
             RectTransform actionRow = CreateButtonRow("ActionRow", bottom, 40f, 20f);
             Button wait = CreateButton("WaitButton", actionRow, HeroBlue, 200f, UiText.WaitButton, 40);
@@ -188,7 +283,7 @@ namespace HeroEscape.EditorTools
             Wire(hud,
                 ("titleText", title), ("statusText", status), ("noticeText", notice), ("hintText", hint),
                 ("waitButton", wait), ("dashButton", dash), ("stasisButton", stasis), ("restartButton", restart),
-                ("nextLevelButton", next), ("backButton", back));
+                ("nextLevelButton", next), ("backButton", back), ("levelSelectButton", levelSelect));
 
             // Nhãn theo từng X01 (số thứ tự, "Frozen"): nằm dưới các panel, không nhận raycast.
             // Chỉ có hai mẫu tắt sẵn; nhãn thật được tạo khi nạp màn, nên dựng lại scene không sinh nhãn trùng.
@@ -205,32 +300,15 @@ namespace HeroEscape.EditorTools
             var gameGo = new GameObject("Game");
             var controller = gameGo.AddComponent<GameController>();
             var input = gameGo.AddComponent<BoardInput>();
-            Wire(controller, ("boardView", board), ("hud", hud), ("enemyStatus", enemyLabels));
-            WireLevels(controller, levelFiles);
+            Wire(controller, ("catalog", catalog), ("boardView", board), ("hud", hud), ("enemyStatus", enemyLabels));
             Wire(input, ("worldCamera", camera), ("board", board), ("controller", controller));
             Wire(fitter, ("board", board), ("topPanel", top), ("bottomPanel", bottom));
 
             return controller;
         }
 
-        static void WireLevels(GameController controller, TextAsset[] levelFiles)
-        {
-            var so = new SerializedObject(controller);
-            SerializedProperty levels = so.FindProperty("levels")
-                ?? throw new InvalidOperationException("[M01] GameController không có field 'levels'.");
-            levels.arraySize = Levels.Length;
-            for (int i = 0; i < Levels.Length; i++)
-            {
-                SerializedProperty entry = levels.GetArrayElementAtIndex(i);
-                entry.FindPropertyRelative("displayName").stringValue = Levels[i].displayName;
-                entry.FindPropertyRelative("levelFile").objectReferenceValue = levelFiles[i];
-            }
-
-            so.ApplyModifiedPropertiesWithoutUndo();
-        }
-
         /// <summary>Hàng nút kéo ngang panel, cao 140, cách đáy panel <paramref name="bottom"/>; nút ẩn không chiếm chỗ.</summary>
-        static RectTransform CreateButtonRow(string name, Transform parent, float bottom, float spacing)
+        internal static RectTransform CreateButtonRow(string name, Transform parent, float bottom, float spacing)
         {
             RectTransform row = CreateRect(name, parent, new Vector2(0f, 0f), new Vector2(1f, 0f),
                 new Vector2(40f, bottom), new Vector2(-40f, bottom + 140f));
@@ -244,7 +322,7 @@ namespace HeroEscape.EditorTools
             return row;
         }
 
-        static RectTransform CreateRect(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
+        internal static RectTransform CreateRect(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
         {
             var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             rect.SetParent(parent, false);
@@ -255,7 +333,7 @@ namespace HeroEscape.EditorTools
             return rect;
         }
 
-        static RectTransform CreatePanel(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, float height)
+        internal static RectTransform CreatePanel(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, float height)
         {
             RectTransform rect = CreateRect(name, parent, anchorMin, anchorMax, Vector2.zero, Vector2.zero);
             rect.pivot = new Vector2(0.5f, anchorMin.y);
@@ -278,14 +356,14 @@ namespace HeroEscape.EditorTools
         }
 
         /// <summary>Text neo theo cạnh trên của parent; offset tính từ cạnh trên.</summary>
-        static Text CreateText(string name, Transform parent, int fontSize, Color color, FontStyle style, Vector2 offsetMin, Vector2 offsetMax,
+        internal static Text CreateText(string name, Transform parent, int fontSize, Color color, FontStyle style, Vector2 offsetMin, Vector2 offsetMax,
             string initialText)
         {
             RectTransform rect = CreateRect(name, parent, new Vector2(0f, 1f), new Vector2(1f, 1f), offsetMin, offsetMax);
             return ConfigureText(rect.gameObject.AddComponent<Text>(), fontSize, color, style, initialText);
         }
 
-        static Text ConfigureText(Text text, int fontSize, Color color, FontStyle style, string initialText)
+        internal static Text ConfigureText(Text text, int fontSize, Color color, FontStyle style, string initialText)
         {
             // Font tích hợp của Unity (dynamic). Project chưa có font riêng.
             text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -301,7 +379,7 @@ namespace HeroEscape.EditorTools
         }
 
         /// <summary>Nút trong hàng HorizontalLayoutGroup, rộng cố định <paramref name="width"/>.</summary>
-        static Button CreateButton(string name, Transform row, Color color, float width, string label, int fontSize)
+        internal static Button CreateButton(string name, Transform row, Color color, float width, string label, int fontSize)
         {
             var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             rect.SetParent(row, false);
@@ -327,8 +405,11 @@ namespace HeroEscape.EditorTools
             return button;
         }
 
-        /// <summary>Gán field [SerializeField] private qua SerializedObject; báo lỗi rõ nếu sai tên field.</summary>
-        static void Wire(Component target, params (string field, Object value)[] references)
+        /// <summary>
+        /// Gán field [SerializeField] private qua SerializedObject; báo lỗi rõ nếu sai tên field, hoặc nếu reference
+        /// được truyền vào nhưng sau khi gán lại rỗng (object đã bị Unity giải phóng), thay vì âm thầm lưu scene thiếu reference.
+        /// </summary>
+        internal static void Wire(Component target, params (string field, Object value)[] references)
         {
             var so = new SerializedObject(target);
             foreach ((string field, Object value) in references)
@@ -340,9 +421,17 @@ namespace HeroEscape.EditorTools
             }
 
             so.ApplyModifiedPropertiesWithoutUndo();
+
+            so.Update();
+            foreach ((string field, Object value) in references)
+            {
+                if (!ReferenceEquals(value, null) && so.FindProperty(field).objectReferenceValue == null)
+                    throw new InvalidOperationException(
+                        $"[M01] {target.GetType().Name}.{field} bị rỗng sau khi gán (asset đã bị giải phóng?). Scene chưa được lưu.");
+            }
         }
 
-        static void EnsureFolder(string folder)
+        internal static void EnsureFolder(string folder)
         {
             folder = folder.Replace('\\', '/');
             if (AssetDatabase.IsValidFolder(folder)) return;
@@ -351,6 +440,6 @@ namespace HeroEscape.EditorTools
             AssetDatabase.CreateFolder(parent, Path.GetFileName(folder));
         }
 
-        static void Info(string message) => EditorUtility.DisplayDialog("Hero Escape · M01", message, "Đóng");
+        internal static void Info(string message) => EditorUtility.DisplayDialog("Hero Escape · M01", message, "Đóng");
     }
 }

@@ -7,17 +7,6 @@ using UnityEngine.InputSystem;
 
 namespace HeroEscape.Unity
 {
-    /// <summary>Một màn trong chuỗi chơi thử: tên hiển thị và file level text.</summary>
-    [Serializable]
-    public sealed class LevelEntry
-    {
-        [SerializeField] string displayName;
-        [SerializeField] TextAsset levelFile;
-
-        public string DisplayName => displayName;
-        public TextAsset LevelFile => levelFile;
-    }
-
     /// <summary>
     /// Nối GameSession (Core) với hiển thị và input, và chuyển giữa các màn.
     /// Không tự quyết định luật: mọi hành động đi qua TurnInputController → GameSession,
@@ -26,8 +15,8 @@ namespace HeroEscape.Unity
     [DisallowMultipleComponent]
     public sealed class GameController : MonoBehaviour
     {
-        [Tooltip("Các màn theo thứ tự. Màn đầu tiên được nạp khi bắt đầu.")]
-        [SerializeField] LevelEntry[] levels;
+        [Tooltip("Catalog màn dùng chung với Level Select. Màn mở = ID chọn ở Level Select, hoặc màn mặc định của catalog.")]
+        [SerializeField] LevelCatalog catalog;
         [SerializeField] BoardView boardView;
         [SerializeField] HudView hud;
         [Tooltip("Nhãn Frozen phía trên X01 khi X01 bị khóa.")]
@@ -37,8 +26,10 @@ namespace HeroEscape.Unity
 
         GameSession session;
         TurnInputController input;
+        TacticalChasePolicy tactical; // null nếu màn dùng Basic
         int levelIndex = -1;
         Coroutine playback;
+        bool leavingScene;
 
         // Hover hiện tại và khóa của lần cập nhật highlight/preview gần nhất (chỉ tính lại khi khóa đổi).
         GridPos? hoverCell;
@@ -55,14 +46,38 @@ namespace HeroEscape.Unity
             hud.NextLevelClicked += OnNextLevelClicked;
             hud.BackClicked += OnBackClicked;
             hud.WaitHoverChanged += OnWaitHoverChanged;
+            hud.LevelSelectClicked += OnLevelSelectClicked;
 
-            if (levels == null || levels.Length == 0)
+            // Đọc (và xóa) ID màn được chọn ở Level Select; mở thẳng scene này thì dùng màn mặc định.
+            string requestedId = LevelSelection.TakePending();
+            if (catalog == null || catalog.Levels.Count == 0)
             {
-                Fail("[GameController] No levels assigned. Rebuild the scene: Hero Escape > Milestone 01 > Dựng scene chơi thử.");
+                Fail("[GameController] No level catalog assigned. Rebuild the scene: Hero Escape > Milestone 01 > Dựng scene chơi thử.");
                 return;
             }
 
-            LoadLevel(0);
+            int index = catalog.IndexOf(requestedId);
+            if (index < 0)
+            {
+                if (requestedId != null)
+                    Debug.LogWarning($"[GameController] Unknown level id '{requestedId}'; opening the default level.", this);
+                index = catalog.DefaultIndex;
+            }
+
+            LoadLevel(index);
+        }
+
+        /// <summary>
+        /// Về màn Level Select ngay (không xác nhận). Không cho trong lúc đang xử lý pha địch; chặn bấm lặp.
+        /// Scene gameplay bị hủy toàn bộ nên bàn cờ, ghost, highlight và callback của phiên chơi đều được dọn.
+        /// </summary>
+        void OnLevelSelectClicked()
+        {
+            if (leavingScene || (input != null && input.Busy)) return;
+            leavingScene = true;
+            StopPlayback();
+            ClearInteraction();
+            UnityEngine.SceneManagement.SceneManager.LoadScene(catalog.LevelSelectScene, UnityEngine.SceneManagement.LoadSceneMode.Single);
         }
 
         void OnDestroy()
@@ -74,6 +89,7 @@ namespace HeroEscape.Unity
             hud.NextLevelClicked -= OnNextLevelClicked;
             hud.BackClicked -= OnBackClicked;
             hud.WaitHoverChanged -= OnWaitHoverChanged;
+            hud.LevelSelectClicked -= OnLevelSelectClicked;
         }
 
         void Update()
@@ -86,7 +102,7 @@ namespace HeroEscape.Unity
         /// <summary>Gọi từ BoardInput mỗi lần bấm; cell = null nếu bấm ngoài bàn. Lựa chọn hợp lệ được thực hiện ngay.</summary>
         public void OnBoardPressed(bool pointerOverUi, GridPos? cell)
         {
-            if (input != null) Handle(input.PressBoard(pointerOverUi, cell));
+            if (input != null) HandleWithDiagnostics(() => input.PressBoard(pointerOverUi, cell));
         }
 
         /// <summary>Gọi từ BoardInput mỗi frame: ô đang hover trên bàn (null nếu không có hoặc con trỏ trên UI).</summary>
@@ -155,7 +171,7 @@ namespace HeroEscape.Unity
 
         void OnWaitClicked()
         {
-            if (input != null) Handle(input.PressWait());
+            if (input != null) HandleWithDiagnostics(input.PressWait);
         }
 
         void OnDashClicked()
@@ -178,7 +194,7 @@ namespace HeroEscape.Unity
 
         void OnNextLevelClicked()
         {
-            bool canAdvance = session != null && session.Current.Outcome == GameOutcome.Won && levelIndex + 1 < levels.Length;
+            bool canAdvance = session != null && session.Current.Outcome == GameOutcome.Won && levelIndex + 1 < catalog.Levels.Count;
             if (canAdvance) LoadLevel(levelIndex + 1);
         }
 
@@ -194,8 +210,9 @@ namespace HeroEscape.Unity
             StopPlayback();
             session = null;
             input = null;
+            tactical = null;
 
-            LevelEntry entry = levels[index];
+            LevelEntry entry = catalog.Levels[index];
             if (entry == null || entry.LevelFile == null)
             {
                 Fail($"[GameController] Level {index} has no level file.");
@@ -213,20 +230,47 @@ namespace HeroEscape.Unity
                 return;
             }
 
+            if (level.Id != entry.Id)
+            {
+                Fail($"[GameController] Catalog entry '{entry.Id}' points to level file '{entry.LevelFile.name}' with id '{level.Id}'.");
+                return;
+            }
+
             levelIndex = index;
             levelEpoch++;
             interactionKey = null;
-            session = new GameSession(level, new Simulation(new BasicChasePolicy()));
+            // AI theo profile cấu hình của level; gameplay và preview dùng chung Simulation (cùng ngân sách, fallback).
+            IEnemyPolicy policy = EnemyPolicies.ForProfile(level.AiProfile);
+            tactical = policy as TacticalChasePolicy;
+            session = new GameSession(level, new Simulation(policy));
             input = new TurnInputController(session);
             boardView.Build(level);
             bool severalEnemies = level.Enemies.Count > 1;
             if (enemyStatus != null) enemyStatus.Setup(level.Enemies.Count, showOrder: severalEnemies);
-            hud.SetTitle(UiText.LevelTitle(entry.DisplayName));
-            hud.SetHint(severalEnemies ? UiText.HintMultiEnemy
+            hud.SetTitle(level.AiProfile == AiProfile.Tactical ? UiText.LevelTitleTactical(entry.DisplayName) : UiText.LevelTitle(entry.DisplayName));
+            hud.SetHint(level.AiProfile == AiProfile.Tactical ? UiText.HintTactical
+                : severalEnemies ? UiText.HintMultiEnemy
                 : level.StasisMaxUses > 0 ? UiText.HintStasis
                 : level.DashMaxUses > 0 ? UiText.HintDash
                 : UiText.HintBasic);
             ShowState(string.Empty);
+        }
+
+        /// <summary>
+        /// Thực hiện thao tác người chơi; nếu Tactical phải fallback về Basic trong chính nước đi thật này thì ghi một
+        /// cảnh báo cho developer. Preview khi hover không đi qua đây nên không spam Console.
+        /// </summary>
+        void HandleWithDiagnostics(Func<InputResponse> act)
+        {
+            int fallbacksBefore = tactical?.FallbackCount ?? 0;
+            InputResponse response = act();
+            if (tactical != null && response.Acted && tactical.FallbackCount > fallbacksBefore)
+            {
+                Debug.LogWarning($"[Tactical] Hết ngân sách {tactical.TransitionBudget} chuyển trạng thái, X01 dùng Basic AI " +
+                                 $"ở vòng {response.Turn.AfterHeroState.Round}.", this);
+            }
+
+            Handle(response);
         }
 
         void Handle(InputResponse response)
@@ -327,7 +371,7 @@ namespace HeroEscape.Unity
             RefreshInteraction();
         }
 
-        bool HasNextLevel => levelIndex + 1 < levels.Length;
+        bool HasNextLevel => levelIndex + 1 < catalog.Levels.Count;
 
         void RefreshButtons()
         {
@@ -343,9 +387,11 @@ namespace HeroEscape.Unity
                 showNext: state.Outcome == GameOutcome.Won && HasNextLevel,
                 showBack: levelIndex > 0,
                 backLabel: BackLabel);
+            // Về Level Select: dùng được trong lượt Hero và sau thắng/thua; khóa khi đang xử lý pha địch.
+            hud.SetLevelSelectInteractable(!leavingScene && !input.Busy);
         }
 
-        string BackLabel => levelIndex > 0 ? UiText.BackToButton(levels[levelIndex - 1].DisplayName) : string.Empty;
+        string BackLabel => levelIndex > 0 ? UiText.BackToButton(catalog.Levels[levelIndex - 1].DisplayName) : string.Empty;
 
         void Fail(string message)
         {
@@ -358,6 +404,7 @@ namespace HeroEscape.Unity
             if (enemyStatus != null) enemyStatus.HideAllFrozen();
             ClearInteraction();
             hud.SetNavigation(false, levelIndex > 0, BackLabel);
+            hud.SetLevelSelectInteractable(!leavingScene);
         }
     }
 }

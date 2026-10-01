@@ -1,0 +1,29 @@
+// Hero Escape - Level 05: một X01 dùng Tactical AI (nhìn trước một vòng).
+// KHÔNG phải một trong 12 màn chính thức của GDD.
+//
+// Ký hiệu lưới: .  Sàn | #  Tường | E  Cửa thoát | H  Hero (đứng trên Sàn) | X  X01 (đứng trên Sàn)
+// Dòng đầu của lưới là hàng trên cùng. Gốc (0,0) ở góc dưới trái; x tăng sang phải, y tăng lên trên (N = y + 1).
+//
+// Ý đồ: cùng bố cục này, X01 Basic để Hero đi bộ tới Cửa; X01 Tactical chặn được mọi cách chỉ đi bộ/Chờ
+// (đã duyệt hết trạng thái), nên phải dùng Dash để dụ X01 rồi mới vượt lên.
+//
+// Sau khi sửa, chạy Test Runner (EditMode) để kiểm chứng lại các điều kiện thiết kế của màn.
+
+id: M05_TACTICAL
+
+// Profile AI của X01 (basic hoặc tactical; màn cũ không khai báo thì là basic).
+ai: tactical
+
+dash: 2
+stasis: 1
+
+grid:
+. . . . . E
+# # # # . .
+. . . # . .
+. X . . . .
+. # # . # #
+H . . . . .
+
+// Chuỗi thắng tham chiếu với Tactical thật (đã phát lại bằng Simulation, không fallback).
+solution: DASH-E DASH-W E E E N N E N N NE

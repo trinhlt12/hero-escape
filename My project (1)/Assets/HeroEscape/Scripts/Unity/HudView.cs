@@ -23,6 +23,7 @@ namespace HeroEscape.Unity
         [SerializeField] Button restartButton;
         [SerializeField] Button nextLevelButton;
         [SerializeField] Button backButton;
+        [SerializeField] Button levelSelectButton;
         [Tooltip("Màu nút Dash/Stasis khi đang chọn hướng hoặc mục tiêu.")]
         [SerializeField] Color dashSelectingColor = new Color32(0xE8, 0xB8, 0x49, 0xFF);
 
@@ -37,6 +38,7 @@ namespace HeroEscape.Unity
         public event Action RestartClicked;
         public event Action NextLevelClicked;
         public event Action BackClicked;
+        public event Action LevelSelectClicked;
 
         /// <summary>Con trỏ vào (true) hoặc rời (false) nút Wait: dùng để preview Wait.</summary>
         public event Action<bool> WaitHoverChanged;
@@ -54,6 +56,7 @@ namespace HeroEscape.Unity
             restartButton.onClick.AddListener(() => RestartClicked?.Invoke());
             nextLevelButton.onClick.AddListener(() => NextLevelClicked?.Invoke());
             backButton.onClick.AddListener(() => BackClicked?.Invoke());
+            levelSelectButton.onClick.AddListener(() => LevelSelectClicked?.Invoke());
 
             dashImage = dashButton.targetGraphic as Image;
             if (dashImage != null) dashNormalColor = dashImage.color;
@@ -63,6 +66,7 @@ namespace HeroEscape.Unity
             SetLabel(waitButton, UiText.WaitButton);
             SetLabel(restartButton, UiText.RestartButton);
             SetLabel(nextLevelButton, UiText.NextLevelButton);
+            SetLabel(levelSelectButton, UiText.LevelSelectButton);
             ReportMissingGlyphs();
         }
 
@@ -97,6 +101,8 @@ namespace HeroEscape.Unity
         }
 
         public void SetWaitInteractable(bool interactable) => waitButton.interactable = interactable;
+
+        public void SetLevelSelectInteractable(bool interactable) => levelSelectButton.interactable = interactable;
 
         public void SetDash(bool visible, string label, bool interactable, bool selecting)
         {

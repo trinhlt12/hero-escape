@@ -91,6 +91,19 @@ Thay thế mọi mô tả khác trong GDD mục 4 và 9, TDD mục 10, Art Guide
 - **Dash chọn bằng ô đích** (cách 2 bước; bước 1 là Cửa thì đích là Cửa), đổi thành hướng rồi gọi luật Dash hiện có.
 - Highlight, preview và thực thi dùng chung `Simulation.TryGetDestination` / `LegalTargets` / `ApplyStasis`.
 
+## D9 — Tactical AI (từ Milestone 06)
+
+- Profile AI là dữ liệu level: `ai: basic | tactical` (`LevelData.AiProfile`, mặc định Basic). `EnemyPolicies.ForProfile` / `CreateSimulation` tạo AI; gameplay, preview và công cụ kiểm chứng dùng cùng một `Simulation` cho mỗi màn.
+- Tactical (`TacticalChasePolicy`): X chọn nước → mọi phản ứng Hero (không/có Stasis, rồi Move/Wait/Dash với tài nguyên thật) → một pha địch Basic. Chọn theo thứ tự ưu tiên: bắt ngay → không để Hero thắng → ít phản ứng an toàn → khoảng cách BFS → thứ tự hướng cố định, Wait cuối.
+- Ngân sách 20.000 chuyển trạng thái mỗi quyết định (đếm mỗi lần gọi `ResolveRemainingEnemyPhase`/`ApplyStasis`/`Resolve` trong tìm kiếm). Hết ngân sách thì dùng Basic từ trạng thái gốc. Không dùng thời gian máy.
+- Không gọi Tactical đệ quy; X bị khóa không gọi Tactical; không ngẫu nhiên; không đọc hover/input.
+
+## D10 — Level Select và catalog màn (từ Milestone 07)
+
+- `LevelCatalog` (ScriptableObject, `Assets/HeroEscape/Data/LevelCatalog.asset`) là danh sách màn dùng chung cho scene `LevelSelect` và gameplay scene. Định danh = `id:` của file level, không phải tên hiển thị.
+- Luồng: scene `LevelSelect` (đầu Build Settings) → một gameplay scene dùng chung cho mọi màn. Tất cả màn mở sẵn; không khóa màn, sao, điểm hay lưu tiến trình.
+- Chỉ truyền ID màn giữa scene (`LevelSelection`, xóa khi đọc và khi bắt đầu Play). Không `DontDestroyOnLoad` cho bàn cờ/phiên chơi. Mở thẳng gameplay scene thì dùng màn mặc định của catalog.
+
 ## Lịch sử
 
 | Ngày | Thay đổi |
@@ -101,3 +114,5 @@ Thay thế mọi mô tả khác trong GDD mục 4 và 9, TDD mục 10, Art Guide
 | 2026-10-01 | Thêm D6: thẻ phụ trợ Stasis, đường nhìn supercover, nút Back về màn trước (Milestone 03). |
 | 2026-10-01 | Thêm D7: nhiều kẻ địch, thứ tự theo SpawnIndex, Stasis theo ID (Milestone 04). |
 | 2026-10-01 | Thêm D8: không Undo/Confirm/Cancel; highlight luôn hiện, hover dự đoán, click thực hiện; Dash chọn ô đích (Milestone 05). |
+| 2026-10-01 | Thêm D9: Tactical AI theo profile level, ngân sách và fallback (Milestone 06). |
+| 2026-10-01 | Thêm D10: Level Select, LevelCatalog dùng chung, chỉ truyền ID màn giữa scene (Milestone 07). |

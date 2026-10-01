@@ -13,6 +13,7 @@ namespace HeroEscape.Core
     /// H . . . X      (X = một X01; nhiều X01 dùng 1, 2, 3 theo thứ tự hành động)
     /// dash: 2        (tùy chọn; số lần Dash mỗi lần chơi, mặc định 0 = không có Dash)
     /// stasis: 1      (tùy chọn; số lần dùng thẻ Stasis, mặc định 0 = không có Stasis)
+    /// ai: tactical   (tùy chọn; profile AI của X01: basic hoặc tactical, mặc định basic)
     /// solution: N NE DASH-E STASIS+WAIT
     /// </code>
     /// Ký hiệu: . Sàn, # Tường, E Cửa, H Hero (trên Sàn), X X01 (trên Sàn); 1/2/3 = X01 có ID X1/X2/X3 hành động theo thứ tự đó.
@@ -36,6 +37,7 @@ namespace HeroEscape.Core
             string solution = null;
             int dashMaxUses = 0;
             int stasisMaxUses = 0;
+            AiProfile aiProfile = AiProfile.Basic;
             var rows = new List<(int line, string row)>();
             bool inGrid = false;
 
@@ -70,6 +72,13 @@ namespace HeroEscape.Core
                 {
                     if (!int.TryParse(stasisValue, out stasisMaxUses))
                         throw Error(i, $"Giá trị 'stasis:' phải là số nguyên, đang là '{stasisValue}'.");
+                    inGrid = false;
+                }
+                else if (TryReadKey(line, "ai:", out string aiValue))
+                {
+                    if (string.Equals(aiValue, "basic", StringComparison.OrdinalIgnoreCase)) aiProfile = AiProfile.Basic;
+                    else if (string.Equals(aiValue, "tactical", StringComparison.OrdinalIgnoreCase)) aiProfile = AiProfile.Tactical;
+                    else throw Error(i, $"Giá trị 'ai:' phải là basic hoặc tactical, đang là '{aiValue}'.");
                     inGrid = false;
                 }
                 else if (inGrid)
@@ -133,7 +142,7 @@ namespace HeroEscape.Core
             if (enemies.Count == 0) throw new LevelFormatException($"[{id}] Lưới thiếu X01 (X hoặc 1, 2, 3).");
 
             List<HeroAction> actions = ParseSolution(id, solution, enemies, out Dictionary<int, string> stasisTargets);
-            return new LevelData(id, width, height, cells, hero.Value, enemies, actions, dashMaxUses, stasisMaxUses, stasisTargets);
+            return new LevelData(id, width, height, cells, hero.Value, enemies, actions, dashMaxUses, stasisMaxUses, stasisTargets, aiProfile);
         }
 
         public static IReadOnlyList<HeroAction> ParseActions(string levelId, string text) =>

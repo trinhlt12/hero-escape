@@ -310,17 +310,29 @@ namespace HeroEscape.Core
                 return TurnResult.Done(won, won, false, events);
             }
 
-            return ResolveEnemyPhase(afterHero, events);
+            return ResolveEnemyPhase(afterHero, 0, events);
+        }
+
+        /// <summary>
+        /// Chạy tiếp pha địch từ X thứ <paramref name="startIndex"/> (theo SpawnIndex) tới hết, rồi kết thúc vòng.
+        /// Dùng khi mô phỏng phần còn lại của một pha địch (ví dụ trong đánh giá của Tactical AI). Không đổi trạng thái thật.
+        /// </summary>
+        public TurnResult ResolveRemainingEnemyPhase(GameState state, int startIndex)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (state.Outcome != GameOutcome.Playing) return TurnResult.Rejected(state, ActionError.GameOver);
+            return ResolveEnemyPhase(state, startIndex, new List<RuleEvent>());
         }
 
         /// <summary>
         /// Pha địch: mỗi X01 hành động đúng một lần theo SpawnIndex tăng dần. Mỗi X tính lại từ trạng thái
         /// sau khi X trước đã hành động (không di chuyển đồng thời). X bắt Hero thì thua ngay và dừng cả pha.
+        /// X bị khóa bỏ qua pha mà không gọi chính sách AI (kể cả Tactical).
         /// </summary>
-        TurnResult ResolveEnemyPhase(GameState afterHero, List<RuleEvent> events)
+        TurnResult ResolveEnemyPhase(GameState afterHero, int startIndex, List<RuleEvent> events)
         {
             GameState next = afterHero;
-            for (int i = 0; i < next.Enemies.Count; i++)
+            for (int i = startIndex; i < next.Enemies.Count; i++)
             {
                 EnemyState enemy = next.Enemies[i];
                 if (enemy.Locked)

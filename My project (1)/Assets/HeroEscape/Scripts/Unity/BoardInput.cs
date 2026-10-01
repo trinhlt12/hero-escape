@@ -19,10 +19,20 @@ namespace HeroEscape.Unity
 
         static readonly List<RaycastResult> UiHits = new List<RaycastResult>();
 
+        // Sau khi nạp scene (ví dụ từ Level Select), bỏ qua lần bấm đang giữ cho tới khi thả ra,
+        // để click chọn màn không trở thành một hành động trên bàn cờ.
+        bool waitForRelease = true;
+
         void Update()
         {
             Pointer pointer = Pointer.current;
             if (pointer == null) return;
+
+            if (waitForRelease)
+            {
+                if (pointer.press.isPressed) return;
+                waitForRelease = false;
+            }
 
             Vector2 screen = pointer.position.ReadValue();
             bool overUi = IsOverUi(screen);
