@@ -179,58 +179,127 @@ namespace HeroEscape.Core
             return SupportResult.Done(state.WithStasisApplied(index, StasisLockPhases));
         }
 
-        public TurnResult Resolve(GameState state, HeroAction action)
+        /// <summary>
+        /// Kiểm tra hành động chính của Hero và trả về ô đích, không đổi trạng thái và không chạy pha địch.
+        /// Đây là bộ kiểm tra duy nhất cho Move/Dash/Wait: dùng chung cho thực thi, highlight và preview.
+        /// </summary>
+        /// <param name="failedDashStep">Với Dash bị chặn: bước bị chặn (1 hoặc 2), ngược lại 0.</param>
+        public bool TryGetDestination(GameState state, HeroAction action, out GridPos destination, out ActionError error,
+            out int failedDashStep)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
-            if (state.Outcome != GameOutcome.Playing) return TurnResult.Rejected(state, ActionError.GameOver);
+            destination = state.HeroPos;
+            failedDashStep = 0;
+            if (state.Outcome != GameOutcome.Playing)
+            {
+                error = ActionError.GameOver;
+                return false;
+            }
 
-            var events = new List<RuleEvent>();
-            GameState afterHero;
             // Hero không vào, không xuyên và không lách góc qua bất kỳ X01 nào (kể cả X đang bị khóa).
             GridPos[] enemyCells = state.EnemyCells();
-
             switch (action.Kind)
             {
                 case HeroActionKind.Wait:
-                    afterHero = state;
-                    events.Add(new RuleEvent(RuleEventKind.HeroWaited, state.HeroPos, state.HeroPos));
-                    break;
+                    error = ActionError.None;
+                    return true;
 
                 case HeroActionKind.Move:
                 {
                     StepCheck check = GridRules.CheckStep(state.Level, Mover.Hero, state.HeroPos, action.Direction, state.HeroPos, enemyCells);
-                    if (check != StepCheck.Ok) return TurnResult.Rejected(state, ToError(check));
+                    if (check != StepCheck.Ok)
+                    {
+                        error = ToError(check);
+                        return false;
+                    }
 
-                    GridPos to = state.HeroPos + action.Direction.ToDelta();
-                    afterHero = state.WithHero(to);
-                    events.Add(new RuleEvent(RuleEventKind.HeroMoved, state.HeroPos, to));
-                    break;
+                    destination = state.HeroPos + action.Direction.ToDelta();
+                    error = ActionError.None;
+                    return true;
                 }
 
                 case HeroActionKind.Dash:
                 {
-                    if (state.Level.DashMaxUses <= 0) return TurnResult.Rejected(state, ActionError.DashNotAvailable);
-                    if (state.DashUsesLeft <= 0) return TurnResult.Rejected(state, ActionError.NoDashUsesLeft);
+                    if (state.Level.DashMaxUses <= 0)
+                    {
+                        error = ActionError.DashNotAvailable;
+                        return false;
+                    }
 
-                    // Kiểm tra trọn đường Dash trước khi đổi trạng thái: không có di chuyển một phần.
+                    if (state.DashUsesLeft <= 0)
+                    {
+                        error = ActionError.NoDashUsesLeft;
+                        return false;
+                    }
+
+                    // Kiểm tra trọn đường Dash: không có di chuyển một phần, không tự rút xuống 1 bước.
                     GridPos current = state.HeroPos;
                     for (int step = 1; step <= DashLength; step++)
                     {
                         StepCheck check = GridRules.CheckStep(state.Level, Mover.Hero, current, action.Direction, current, enemyCells);
-                        if (check != StepCheck.Ok) return TurnResult.Rejected(state, ToError(check), step);
+                        if (check != StepCheck.Ok)
+                        {
+                            error = ToError(check);
+                            failedDashStep = step;
+                            return false;
+                        }
 
                         current += action.Direction.ToDelta();
                         // Tới Cửa ở bất kỳ bước nào: dừng tại đó, không kiểm tra bước còn lại.
                         if (state.Level.GetCell(current) == CellType.Exit) break;
                     }
 
-                    afterHero = state.WithHero(current).WithDashUsed();
-                    events.Add(new RuleEvent(RuleEventKind.HeroDashed, state.HeroPos, current));
-                    break;
+                    destination = current;
+                    error = ActionError.None;
+                    return true;
                 }
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(action), action.Kind, "Hành động không xác định.");
+            }
+        }
+
+        /// <summary>
+        /// Mọi hành động Move hoặc Dash hợp lệ từ trạng thái này, kèm ô đích, theo thứ tự hướng cố định.
+        /// Chỉ xét luật di chuyển; không loại ô vì có thể bị bắt sau pha địch.
+        /// </summary>
+        public List<(HeroAction action, GridPos destination)> LegalTargets(GameState state, HeroActionKind kind)
+        {
+            var targets = new List<(HeroAction, GridPos)>();
+            if (kind != HeroActionKind.Move && kind != HeroActionKind.Dash) return targets;
+
+            foreach (Direction direction in Directions.Order)
+            {
+                HeroAction action = kind == HeroActionKind.Move ? HeroAction.Move(direction) : HeroAction.Dash(direction);
+                if (TryGetDestination(state, action, out GridPos destination, out _, out _))
+                    targets.Add((action, destination));
+            }
+
+            return targets;
+        }
+
+        public TurnResult Resolve(GameState state, HeroAction action)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (!TryGetDestination(state, action, out GridPos destination, out ActionError error, out int failedDashStep))
+                return TurnResult.Rejected(state, error, failedDashStep);
+
+            var events = new List<RuleEvent>();
+            GameState afterHero;
+            switch (action.Kind)
+            {
+                case HeroActionKind.Wait:
+                    afterHero = state;
+                    events.Add(new RuleEvent(RuleEventKind.HeroWaited, state.HeroPos, state.HeroPos));
+                    break;
+                case HeroActionKind.Move:
+                    afterHero = state.WithHero(destination);
+                    events.Add(new RuleEvent(RuleEventKind.HeroMoved, state.HeroPos, destination));
+                    break;
+                default:
+                    afterHero = state.WithHero(destination).WithDashUsed();
+                    events.Add(new RuleEvent(RuleEventKind.HeroDashed, state.HeroPos, destination));
+                    break;
             }
 
             // Đến Cửa: thắng ngay, không X01 nào hành động.

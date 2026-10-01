@@ -22,14 +22,18 @@ namespace HeroEscape.Unity
         void Update()
         {
             Pointer pointer = Pointer.current;
-            if (pointer == null || !pointer.press.wasPressedThisFrame) return;
+            if (pointer == null) return;
 
             Vector2 screen = pointer.position.ReadValue();
             bool overUi = IsOverUi(screen);
-
             Vector3 world = worldCamera.ScreenToWorldPoint(new Vector3(screen.x, screen.y, -worldCamera.transform.position.z));
             GridPos? cell = board.TryWorldToCell(world, out GridPos hit) ? hit : (GridPos?)null;
-            controller.OnBoardPressed(overUi, cell);
+
+            // Hover (chuột trong Editor): ô dưới con trỏ, hoặc null nếu con trỏ đang trên UI. GameController chỉ
+            // mô phỏng lại khi ô, trạng thái hoặc chế độ thay đổi.
+            controller.OnBoardHover(overUi ? null : cell);
+
+            if (pointer.press.wasPressedThisFrame) controller.OnBoardPressed(overUi, cell);
         }
 
         static bool IsOverUi(Vector2 screenPosition)

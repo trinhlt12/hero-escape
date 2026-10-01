@@ -6,19 +6,20 @@ using UnityEngine;
 namespace HeroEscape.EditorTools
 {
     /// <summary>
-    /// Kiểm tra (chỉ đọc) 5 sprite dùng trong Milestone 01. Không sửa, di chuyển hay reimport art.
+    /// Kiểm tra (chỉ đọc) các sprite dùng trong scene chơi thử (5 sprite M01 + tile_highlight). Không sửa, di chuyển hay reimport art.
     /// </summary>
     public static class M01ArtCheck
     {
         public const string FloorPath = "Assets/Art/Board/tile_floor.asset";
         public const string WallPath = "Assets/Art/Board/tile_wall.asset";
         public const string ExitPath = "Assets/Art/Board/tile_exit.asset";
+        public const string HighlightPath = "Assets/Art/Board/tile_highlight.asset";
         public const string HeroPath = "Assets/Art/Actors/hero_h01.asset";
         public const string EnemyPath = "Assets/Art/Actors/enemy_x01.asset";
 
         public sealed class ArtSet
         {
-            public Sprite Floor, Wall, Exit, Hero, Enemy;
+            public Sprite Floor, Wall, Exit, Hero, Enemy, Highlight;
         }
 
         [MenuItem("Hero Escape/Milestone 01/Kiểm tra art M01", priority = 20)]
@@ -26,13 +27,13 @@ namespace HeroEscape.EditorTools
         {
             bool ok = Run(out _);
             EditorUtility.DisplayDialog("Kiểm tra art M01",
-                ok ? "Đủ 5 sprite. Xem chi tiết và cảnh báo (nếu có) trong Console." : "Thiếu sprite. Xem Console.", "Đóng");
+                ok ? "Đủ sprite. Xem chi tiết và cảnh báo (nếu có) trong Console." : "Thiếu sprite. Xem Console.", "Đóng");
         }
 
         /// <summary>Trả về false nếu thiếu sprite (lỗi chặn). Cảnh báo cấu hình không chặn.</summary>
         public static bool Run(out ArtSet art)
         {
-            var report = new StringBuilder("[M01 Art] Kiểm tra 5 sprite:\n");
+            var report = new StringBuilder("[M01 Art] Kiểm tra sprite:\n");
             var errors = new List<string>();
             var warnings = new List<string>();
 
@@ -41,6 +42,7 @@ namespace HeroEscape.EditorTools
                 Floor = Check(FloorPath, report, errors, warnings),
                 Wall = Check(WallPath, report, errors, warnings),
                 Exit = Check(ExitPath, report, errors, warnings),
+                Highlight = Check(HighlightPath, report, errors, warnings),
                 Hero = Check(HeroPath, report, errors, warnings),
                 Enemy = Check(EnemyPath, report, errors, warnings),
             };

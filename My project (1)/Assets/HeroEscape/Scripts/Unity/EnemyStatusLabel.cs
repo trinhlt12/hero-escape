@@ -25,6 +25,8 @@ namespace HeroEscape.Unity
         [SerializeField] Vector2 orderOffsetCells = new Vector2(-0.36f, 0.34f);
 
         readonly List<Text> frozenLabels = new List<Text>();
+        readonly List<bool> realFrozen = new List<bool>();
+        int previewFrozenIndex = -1;
         readonly List<Text> orderLabels = new List<Text>();
 
         void Awake()
@@ -40,22 +42,52 @@ namespace HeroEscape.Unity
             foreach (Text label in orderLabels) Destroy(label.gameObject);
             frozenLabels.Clear();
             orderLabels.Clear();
+            realFrozen.Clear();
+            previewFrozenIndex = -1;
 
             for (int i = 0; i < enemyCount; i++)
             {
                 frozenLabels.Add(Clone(frozenTemplate, $"Frozen {i + 1}", UiText.FrozenLabel, active: false));
+                realFrozen.Add(false);
                 orderLabels.Add(Clone(orderTemplate, $"Order {i + 1}", UiText.EnemyOrder(i + 1), active: showOrder));
             }
         }
 
+        /// <summary>Trạng thái khóa thật của X thứ <paramref name="index"/> (chỉ đúng sau khi đã dùng thẻ).</summary>
         public void SetFrozen(int index, bool frozen)
         {
-            if (index >= 0 && index < frozenLabels.Count) frozenLabels[index].gameObject.SetActive(frozen);
+            if (index < 0 || index >= realFrozen.Count) return;
+            realFrozen[index] = frozen;
+            Refresh(index);
+        }
+
+        /// <summary>Hover mục tiêu Stasis hợp lệ: hiện "Will be frozen" trên X đó (-1 = không có). Chỉ là dự kiến.</summary>
+        public void SetFrozenPreview(int index)
+        {
+            if (index == previewFrozenIndex) return;
+            int previous = previewFrozenIndex;
+            previewFrozenIndex = index;
+            Refresh(previous);
+            Refresh(index);
         }
 
         public void HideAllFrozen()
         {
-            foreach (Text label in frozenLabels) label.gameObject.SetActive(false);
+            previewFrozenIndex = -1;
+            for (int i = 0; i < realFrozen.Count; i++)
+            {
+                realFrozen[i] = false;
+                Refresh(i);
+            }
+        }
+
+        void Refresh(int index)
+        {
+            if (index < 0 || index >= frozenLabels.Count) return;
+            Text label = frozenLabels[index];
+            bool preview = index == previewFrozenIndex && !realFrozen[index];
+            label.text = realFrozen[index] ? UiText.FrozenLabel : UiText.WillBeFrozen;
+            label.gameObject.SetActive(realFrozen[index] || preview);
         }
 
         void LateUpdate()

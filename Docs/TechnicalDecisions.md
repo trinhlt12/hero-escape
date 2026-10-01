@@ -80,6 +80,17 @@ Ghi chú triển khai (không đổi luật):
 - Stasis nhận ID mục tiêu (`ApplyStasis(state, enemyId)`); UI đổi ô được bấm thành ID của X đứng ở ô đó.
 - API một X cũ được giữ làm lối tắt tới X đầu tiên để không phải sửa Level 01–03 và test cũ.
 
+## D8 — Tương tác: highlight, hover preview, click thực hiện (từ Milestone 05)
+
+Thay thế mọi mô tả khác trong GDD mục 4 và 9, TDD mục 10, Art Guide (nút Xác nhận/Hủy/Hoàn tác, overlay highlight) và Milestone02 (Dash chọn hướng bằng ô kề).
+
+- **Không Undo. Không nút Confirm. Không nút Cancel.**
+- Highlight luôn hiện cho mọi lựa chọn hợp lệ của chế độ hiện tại (Move mặc định, Dash, Stasis). Highlight thay sprite sàn bằng `Assets/Art/Board/tile_highlight.asset`.
+- Hover (chuột, Editor) chỉ dự đoán bằng cùng Simulation/AI trên trạng thái bất biến; không tiêu hao gì.
+- Click ô đích/mục tiêu hợp lệ là thực hiện ngay; bấm nút kỹ năng chỉ đổi chế độ; bấm lại hoặc Escape để về Move.
+- **Dash chọn bằng ô đích** (cách 2 bước; bước 1 là Cửa thì đích là Cửa), đổi thành hướng rồi gọi luật Dash hiện có.
+- Highlight, preview và thực thi dùng chung `Simulation.TryGetDestination` / `LegalTargets` / `ApplyStasis`.
+
 ## Lịch sử
 
 | Ngày | Thay đổi |
@@ -89,3 +100,4 @@ Ghi chú triển khai (không đổi luật):
 | 2026-10-01 | Thêm D5: text trong game tiếng Anh, cấu hình Dash theo level (Milestone 02). |
 | 2026-10-01 | Thêm D6: thẻ phụ trợ Stasis, đường nhìn supercover, nút Back về màn trước (Milestone 03). |
 | 2026-10-01 | Thêm D7: nhiều kẻ địch, thứ tự theo SpawnIndex, Stasis theo ID (Milestone 04). |
+| 2026-10-01 | Thêm D8: không Undo/Confirm/Cancel; highlight luôn hiện, hover dự đoán, click thực hiện; Dash chọn ô đích (Milestone 05). |

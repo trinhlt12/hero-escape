@@ -11,7 +11,7 @@ namespace HeroEscape.Unity
         public const string NextLevelButton = "Next Level";
 
         public const string HintBasic =
-            "Click a tile next to the hero to move (8 directions). Press Wait to stay.\nReach the exit and don't let X01 catch you.";
+            "Click a highlighted tile to move. Hover it to preview the enemy turn.\nPress Wait to stay. Reach the exit and don't let X01 catch you.";
         public const string HintDash =
             "Dash moves the hero 2 tiles in a straight line (limited uses).\nClick a tile next to the hero to move, or press Wait to stay.";
 
@@ -28,10 +28,15 @@ namespace HeroEscape.Unity
         public const string LevelError = "Level data error. See the Console.";
 
         public const string ClickHero = "That's the hero. Press Wait to stay in place.";
-        public const string NotAdjacent = "You can only move to a tile next to the hero.";
+        public const string NotAdjacent = "You can only move to a highlighted tile next to the hero.";
 
-        public const string DashPrompt = "Choose an adjacent tile to dash in that direction.";
-        public const string DashPickAdjacent = "Pick one of the 8 tiles next to the hero to set the dash direction.";
+        public const string DashPrompt = "Click a highlighted tile to dash there (2 tiles in a straight line).";
+        public const string DashPickTarget = "Click a highlighted landing tile to dash.";
+
+        // Dự đoán khi hover (chỉ hiển thị).
+        public const string WillBeCaught = "You will be caught";
+        public const string WillEscape = "You will escape";
+        public const string WillBeFrozen = "Will be frozen";
         public const string DashCancelled = "Dash cancelled.";
         public const string NoDashUsesLeft = "No Dash uses left.";
 
@@ -112,7 +117,7 @@ namespace HeroEscape.Unity
                 text.Append(LevelTitle("Level 0123456789")).Append(WaitButton).Append(RestartButton).Append(NextLevelButton)
                     .Append(HintBasic).Append(HintDash).Append(YourTurn(1234567890)).Append(EnemyTurn).Append(Won).Append(Lost)
                     .Append(WonNext).Append(WonLast).Append(PressRestart).Append(Restarted).Append(EnemyStayed).Append(LevelError)
-                    .Append(ClickHero).Append(NotAdjacent).Append(DashPrompt).Append(DashPickAdjacent).Append(DashCancelled)
+                    .Append(ClickHero).Append(NotAdjacent).Append(DashPrompt).Append(DashPickTarget).Append(WillBeCaught).Append(WillEscape).Append(WillBeFrozen).Append(DashCancelled)
                     .Append(NoDashUsesLeft).Append(DashButton(2, 2)).Append(BackToButton("Level 01"))
                     .Append(HintStasis).Append(StasisPrompt).Append(StasisCancelled).Append(StasisApplied).Append(NoStasisUsesLeft)
                     .Append(SupportAlreadyUsed).Append(EnemySkipped).Append(FrozenLabel).Append(StasisButton(1, 1))

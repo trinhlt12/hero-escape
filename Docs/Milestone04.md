@@ -1,6 +1,8 @@
 # Milestone 04 — Nhiều kẻ địch và Level 04 (hai X01)
 
-Ngày: 2026-10-01 • Trạng thái: **Đã có code, level và test; chờ dựng lại scene và playtest trong Editor**
+Ngày: 2026-10-01 • Trạng thái: **Hoàn thành.** Game Designer đã playtest Level 01–04 thành công (báo cáo 2026-10-01). Bảng mục 6 giữ nguyên kết quả do Claude ghi lúc bàn giao.
+
+> Từ Milestone 05: tương tác đổi sang highlight + hover preview + click thực hiện, Dash chọn ô đích (xem `Docs/Milestone05.md`, D8). Luật và kết quả Level 04 không đổi.
 
 Khóa phạm vi task nhiều X + Level 04. Level 01–03 đã được Game Designer playtest thành công (báo cáo 2026-10-01). Dữ liệu, bố cục, tài nguyên và hành vi của ba màn này giữ nguyên.
 

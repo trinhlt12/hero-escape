@@ -138,7 +138,8 @@ namespace HeroEscape.EditorTools
             var board = boardGo.AddComponent<BoardView>();
             Wire(board,
                 ("floorSprite", art.Floor), ("wallSprite", art.Wall), ("exitSprite", art.Exit),
-                ("heroSprite", art.Hero), ("enemySprite", art.Enemy), ("spriteMaterial", unlitMaterial));
+                ("heroSprite", art.Hero), ("enemySprite", art.Enemy), ("highlightSprite", art.Highlight),
+                ("spriteMaterial", unlitMaterial));
 
             // UI. Không gọi AssignDefaultActions() ở edit mode: hàm đó tạo action tạm trong bộ nhớ, không lưu được vào scene.
             // InputSystemUIInputModule tự gán action mặc định (Reset trong Editor hoặc OnEnable khi chạy).

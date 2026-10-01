@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace HeroEscape.Unity
@@ -37,8 +38,16 @@ namespace HeroEscape.Unity
         public event Action NextLevelClicked;
         public event Action BackClicked;
 
+        /// <summary>Con trỏ vào (true) hoặc rời (false) nút Wait: dùng để preview Wait.</summary>
+        public event Action<bool> WaitHoverChanged;
+
+        string notice = string.Empty;
+        string previewWarning;
+
         void Awake()
         {
+            AddHoverRelay(waitButton.gameObject, hovered => WaitHoverChanged?.Invoke(hovered));
+
             waitButton.onClick.AddListener(() => WaitClicked?.Invoke());
             dashButton.onClick.AddListener(() => DashClicked?.Invoke());
             stasisButton.onClick.AddListener(() => StasisClicked?.Invoke());
@@ -63,7 +72,29 @@ namespace HeroEscape.Unity
 
         public void SetStatus(string text) => statusText.text = text;
 
-        public void SetNotice(string text) => noticeText.text = text ?? string.Empty;
+        public void SetNotice(string text)
+        {
+            notice = text ?? string.Empty;
+            noticeText.text = previewWarning ?? notice;
+        }
+
+        /// <summary>Cảnh báo dự kiến khi hover ("You will be caught"/"You will escape"); null = trả lại thông báo thường.</summary>
+        public void SetPreviewWarning(string text)
+        {
+            previewWarning = string.IsNullOrEmpty(text) ? null : text;
+            noticeText.text = previewWarning ?? notice;
+        }
+
+        static void AddHoverRelay(GameObject target, Action<bool> onHover)
+        {
+            var trigger = target.GetComponent<EventTrigger>() ?? target.AddComponent<EventTrigger>();
+            var enter = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+            enter.callback.AddListener(_ => onHover(true));
+            var exit = new EventTrigger.Entry { eventID = EventTriggerType.PointerExit };
+            exit.callback.AddListener(_ => onHover(false));
+            trigger.triggers.Add(enter);
+            trigger.triggers.Add(exit);
+        }
 
         public void SetWaitInteractable(bool interactable) => waitButton.interactable = interactable;
 

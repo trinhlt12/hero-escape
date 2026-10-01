@@ -40,6 +40,12 @@ namespace HeroEscape.Unity
         int levelIndex = -1;
         Coroutine playback;
 
+        // Hover hiện tại và khóa của lần cập nhật highlight/preview gần nhất (chỉ tính lại khi khóa đổi).
+        GridPos? hoverCell;
+        bool hoverWait;
+        int levelEpoch;
+        (int epoch, int revision, InputMode mode, bool canAct, GridPos? cell, bool wait)? interactionKey;
+
         void Start()
         {
             hud.WaitClicked += OnWaitClicked;
@@ -48,6 +54,7 @@ namespace HeroEscape.Unity
             hud.RestartClicked += OnRestartClicked;
             hud.NextLevelClicked += OnNextLevelClicked;
             hud.BackClicked += OnBackClicked;
+            hud.WaitHoverChanged += OnWaitHoverChanged;
 
             if (levels == null || levels.Length == 0)
             {
@@ -66,6 +73,7 @@ namespace HeroEscape.Unity
             hud.RestartClicked -= OnRestartClicked;
             hud.NextLevelClicked -= OnNextLevelClicked;
             hud.BackClicked -= OnBackClicked;
+            hud.WaitHoverChanged -= OnWaitHoverChanged;
         }
 
         void Update()
@@ -75,10 +83,74 @@ namespace HeroEscape.Unity
                 Handle(input.Cancel());
         }
 
-        /// <summary>Gọi từ BoardInput mỗi lần bấm; cell = null nếu bấm ngoài bàn.</summary>
+        /// <summary>Gọi từ BoardInput mỗi lần bấm; cell = null nếu bấm ngoài bàn. Lựa chọn hợp lệ được thực hiện ngay.</summary>
         public void OnBoardPressed(bool pointerOverUi, GridPos? cell)
         {
             if (input != null) Handle(input.PressBoard(pointerOverUi, cell));
+        }
+
+        /// <summary>Gọi từ BoardInput mỗi frame: ô đang hover trên bàn (null nếu không có hoặc con trỏ trên UI).</summary>
+        public void OnBoardHover(GridPos? cell)
+        {
+            hoverCell = cell;
+            RefreshInteraction();
+        }
+
+        void OnWaitHoverChanged(bool hovered)
+        {
+            hoverWait = hovered;
+            RefreshInteraction();
+        }
+
+        /// <summary>
+        /// Cập nhật highlight lựa chọn hợp lệ và preview của ô/nút đang hover. Chỉ tính lại khi màn, revision trạng thái,
+        /// chế độ, khả năng hành động hoặc mục tiêu hover thay đổi; nhờ đó chuột đứng yên vẫn được cập nhật khi trạng
+        /// thái đổi, nhưng không mô phỏng lại mỗi frame. Preview không bao giờ được áp vào trạng thái thật.
+        /// </summary>
+        void RefreshInteraction()
+        {
+            if (input == null)
+            {
+                interactionKey = null;
+                ClearInteraction();
+                return;
+            }
+
+            var key = (levelEpoch, session.Revision, input.Mode, input.CanAct, hoverCell, hoverWait);
+            if (interactionKey.HasValue && interactionKey.Value == key) return;
+            interactionKey = key;
+
+            boardView.SetHighlights(input.HighlightedCells);
+            ShowPreview(hoverWait ? input.PreviewWaitHover() : input.PreviewBoardHover(hoverCell));
+        }
+
+        void ShowPreview(TurnPreview preview)
+        {
+            switch (preview.Kind)
+            {
+                case PreviewKind.MainAction:
+                    boardView.ShowPreview(session.Current, preview.Turn.NextState);
+                    if (enemyStatus != null) enemyStatus.SetFrozenPreview(-1);
+                    hud.SetPreviewWarning(preview.WillLose ? UiText.WillBeCaught : preview.WillWin ? UiText.WillEscape : null);
+                    break;
+                case PreviewKind.StasisTarget:
+                    // Chỉ cho thấy X sẽ bị khóa; không mô phỏng pha địch, không giả định Hero sẽ Wait.
+                    boardView.HidePreview();
+                    if (enemyStatus != null) enemyStatus.SetFrozenPreview(preview.StasisEnemyIndex);
+                    hud.SetPreviewWarning(null);
+                    break;
+                default:
+                    boardView.HidePreview();
+                    if (enemyStatus != null) enemyStatus.SetFrozenPreview(-1);
+                    hud.SetPreviewWarning(null);
+                    break;
+            }
+        }
+
+        void ClearInteraction()
+        {
+            boardView.SetHighlights(System.Array.Empty<GridPos>());
+            ShowPreview(TurnPreview.None);
         }
 
         void OnWaitClicked()
@@ -142,6 +214,8 @@ namespace HeroEscape.Unity
             }
 
             levelIndex = index;
+            levelEpoch++;
+            interactionKey = null;
             session = new GameSession(level, new Simulation(new BasicChasePolicy()));
             input = new TurnInputController(session);
             boardView.Build(level);
@@ -163,6 +237,7 @@ namespace HeroEscape.Unity
                 if (response.Feedback != null) hud.SetNotice(response.Feedback);
                 ShowBoard(session.Current);
                 RefreshButtons();
+                RefreshInteraction();
                 return;
             }
 
@@ -181,6 +256,7 @@ namespace HeroEscape.Unity
             hud.SetStatus(UiText.EnemyTurn);
             hud.SetNotice(AnyLocked(turn.AfterHeroState) ? UiText.EnemySkipped : string.Empty);
             RefreshButtons();
+            RefreshInteraction(); // pha địch: xóa highlight và preview, chặn hành động Hero
 
             yield return new WaitForSeconds(enemyStepDelay);
             // Đã Restart hoặc đổi màn trong lúc chờ: bỏ qua phần còn lại của lượt cũ.
@@ -248,6 +324,7 @@ namespace HeroEscape.Unity
             }
 
             RefreshButtons();
+            RefreshInteraction();
         }
 
         bool HasNextLevel => levelIndex + 1 < levels.Length;
@@ -259,7 +336,7 @@ namespace HeroEscape.Unity
             GameState state = session.Current;
             hud.SetWaitInteractable(input.CanWait);
             hud.SetDash(input.LevelHasDash, UiText.DashButton(state.DashUsesLeft, session.Level.DashMaxUses),
-                input.CanPressDash, input.Mode == InputMode.ChoosingDashDirection);
+                input.CanPressDash, input.Mode == InputMode.ChoosingDashTarget);
             hud.SetStasis(input.LevelHasStasis, UiText.StasisButton(state.StasisUsesLeft, session.Level.StasisMaxUses),
                 input.CanPressStasis, input.Mode == InputMode.ChoosingStasisTarget);
             hud.SetNavigation(
@@ -279,6 +356,7 @@ namespace HeroEscape.Unity
             hud.SetDash(false, string.Empty, false, false);
             hud.SetStasis(false, string.Empty, false, false);
             if (enemyStatus != null) enemyStatus.HideAllFrozen();
+            ClearInteraction();
             hud.SetNavigation(false, levelIndex > 0, BackLabel);
         }
     }

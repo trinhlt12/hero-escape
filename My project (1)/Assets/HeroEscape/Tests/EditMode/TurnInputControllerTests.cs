@@ -27,7 +27,7 @@ namespace HeroEscape.Tests
             GameState before = input.Session.Current;
 
             Assert.AreEqual(UiText.DashPrompt, input.PressDash().Feedback);
-            Assert.AreEqual(InputMode.ChoosingDashDirection, input.Mode);
+            Assert.AreEqual(InputMode.ChoosingDashTarget, input.Mode);
             Assert.IsFalse(input.CanWait, "Wait bị vô hiệu hóa khi đang chọn hướng.");
 
             InputResponse cancel = input.PressDash();
@@ -59,7 +59,7 @@ namespace HeroEscape.Tests
 
             Assert.IsFalse(r.Acted);
             Assert.AreEqual(1, input.Session.Current.Round);
-            Assert.AreEqual(InputMode.ChoosingDashDirection, input.Mode);
+            Assert.AreEqual(InputMode.ChoosingDashTarget, input.Mode);
         }
 
         [Test]
@@ -74,7 +74,7 @@ namespace HeroEscape.Tests
             Assert.IsFalse(r.Acted);
             Assert.IsNull(r.Feedback);
             Assert.AreSame(before, input.Session.Current);
-            Assert.AreEqual(InputMode.ChoosingDashDirection, input.Mode);
+            Assert.AreEqual(InputMode.ChoosingDashTarget, input.Mode);
         }
 
         [Test]
@@ -88,49 +88,74 @@ namespace HeroEscape.Tests
         }
 
         [Test]
-        public void FarTile_OrHeroTile_KeepsDirectionMode_WithoutSpending()
+        public void DashMode_AdjacentFarOrHeroTile_DoesNotDash_KeepsMode_WithoutSpending()
         {
             TurnInputController input = DashLevel();
             input.PressDash();
 
-            Assert.AreEqual(UiText.DashPickAdjacent, input.PressBoard(false, new GridPos(2, 2)).Feedback);
-            Assert.AreEqual(UiText.DashPickAdjacent, input.PressBoard(false, new GridPos(0, 0)).Feedback);
-            Assert.AreEqual(UiText.DashPickAdjacent, input.PressBoard(false, null).Feedback);
-            Assert.AreEqual(InputMode.ChoosingDashDirection, input.Mode);
+            // Ô kề (1,1) không còn dùng để chọn hướng; (2,2) cách 2 bước theo NE mới là ô đích.
+            Assert.AreEqual(UiText.DashPickTarget, input.PressBoard(false, new GridPos(1, 1)).Feedback);
+            Assert.AreEqual(UiText.DashPickTarget, input.PressBoard(false, new GridPos(4, 4)).Feedback);
+            Assert.AreEqual(UiText.DashPickTarget, input.PressBoard(false, new GridPos(0, 0)).Feedback);
+            Assert.AreEqual(UiText.DashPickTarget, input.PressBoard(false, null).Feedback);
+            Assert.AreEqual(InputMode.ChoosingDashTarget, input.Mode);
+            Assert.AreEqual(new GridPos(0, 0), input.Session.Current.HeroPos);
             Assert.AreEqual(2, input.Session.Current.DashUsesLeft);
             Assert.AreEqual(1, input.Session.Current.Round);
+            Assert.AreEqual(0, input.Session.Revision);
         }
 
         [Test]
-        public void InvalidDashDirection_KeepsDirectionMode_WithoutSpending()
+        public void BlockedDashTarget_IsNotHighlighted_AndClickingItDoesNothing()
         {
             TurnInputController input = DashLevel();
             input.PressDash();
 
-            // Hướng N: bước 2 vào Tường (0,2).
-            InputResponse r = input.PressBoard(false, new GridPos(0, 1));
+            // Hướng N: bước 2 là Tường (0,2) nên không có đích (0,2); không tự rút xuống 1 bước (0,1).
+            CollectionAssert.DoesNotContain(input.HighlightedCells, new GridPos(0, 2));
+            CollectionAssert.DoesNotContain(input.HighlightedCells, new GridPos(0, 1));
+            InputResponse r = input.PressBoard(false, new GridPos(0, 2));
 
             Assert.IsFalse(r.Acted);
             Assert.AreEqual(UiText.DashError(ActionError.Wall, 2), r.Feedback);
-            Assert.AreEqual(InputMode.ChoosingDashDirection, input.Mode);
+            Assert.AreEqual(InputMode.ChoosingDashTarget, input.Mode);
             Assert.AreEqual(new GridPos(0, 0), input.Session.Current.HeroPos);
             Assert.AreEqual(2, input.Session.Current.DashUsesLeft);
         }
 
         [Test]
-        public void ValidDash_ClickedTileSetsDirection_ExitsMode_AndSpendsOne()
+        public void ClickingDashLandingTile_DashesThere_OnceAndImmediately()
         {
             TurnInputController input = DashLevel();
             input.PressDash();
 
-            // Bấm ô kề (1,1) = hướng NE; đích cuối là (2,2), không phải ô được bấm.
-            InputResponse r = input.PressBoard(false, new GridPos(1, 1));
+            InputResponse r = input.PressBoard(false, new GridPos(2, 2)); // đích NE
 
             Assert.IsTrue(r.Acted);
             Assert.AreEqual(new GridPos(2, 2), input.Session.Current.HeroPos);
-            Assert.AreEqual(1, input.Session.Current.DashUsesLeft);
+            Assert.AreEqual(1, input.Session.Current.DashUsesLeft, "Trừ đúng 1 Dash.");
+            Assert.AreEqual(1, input.Session.Revision, "Thực hiện đúng một lần, không cần Confirm.");
             Assert.AreEqual(InputMode.Normal, input.Mode);
             Assert.AreEqual(1, r.Turn.Events.Count(e => e.Kind == RuleEventKind.EnemyMoved));
+        }
+
+        [Test]
+        public void DashToExitOnStep1_HighlightsExit_AndWins()
+        {
+            TurnInputController input = NewInput(2,
+                ".....",
+                ".....",
+                "..#..",
+                "..E..",
+                "..H.X");
+            input.PressDash();
+
+            CollectionAssert.Contains(input.HighlightedCells, new GridPos(2, 1), "Bước 1 là Cửa: ô đích là Cửa.");
+            InputResponse r = input.PressBoard(false, new GridPos(2, 1));
+
+            Assert.IsTrue(r.Acted);
+            Assert.AreEqual(GameOutcome.Won, input.Session.Current.Outcome);
+            Assert.IsFalse(r.Turn.EnemyPhaseRan);
         }
 
         [Test]
@@ -153,7 +178,7 @@ namespace HeroEscape.Tests
                 ".....",
                 "H...X");
             input.PressDash();
-            input.PressBoard(false, new GridPos(0, 1)); // Dash N, hết lượt dùng
+            input.PressBoard(false, new GridPos(0, 2)); // Dash N tới (0,2), hết lượt dùng
 
             Assert.AreEqual(0, input.Session.Current.DashUsesLeft);
             Assert.IsFalse(input.CanPressDash);
@@ -183,9 +208,9 @@ namespace HeroEscape.Tests
         {
             TurnInputController input = DashLevel();
             input.PressDash();
-            input.PressBoard(false, new GridPos(1, 1)); // Dash NE
+            input.PressBoard(false, new GridPos(2, 2)); // Dash NE tới (2,2)
             input.PressDash();
-            Assert.AreEqual(InputMode.ChoosingDashDirection, input.Mode);
+            Assert.AreEqual(InputMode.ChoosingDashTarget, input.Mode);
 
             input.Restart();
 
@@ -315,7 +340,7 @@ namespace HeroEscape.Tests
             Assert.AreEqual(InputMode.ChoosingStasisTarget, input.Mode, "Chọn Stasis hủy chọn hướng Dash.");
 
             input.PressDash();
-            Assert.AreEqual(InputMode.ChoosingDashDirection, input.Mode, "Chọn Dash hủy chọn Stasis chưa áp dụng.");
+            Assert.AreEqual(InputMode.ChoosingDashTarget, input.Mode, "Chọn Dash hủy chọn Stasis chưa áp dụng.");
             Assert.AreEqual(1, input.Session.Current.StasisUsesLeft);
             Assert.IsFalse(input.Session.Current.EnemyLocked);
             Assert.AreEqual(2, input.Session.Current.DashUsesLeft);
@@ -426,7 +451,7 @@ namespace HeroEscape.Tests
             // GameController tạo GameSession + TurnInputController mới mỗi lần vào màn.
             TurnInputController first = DashLevel();
             first.PressDash();
-            first.PressBoard(false, new GridPos(1, 1));
+            first.PressBoard(false, new GridPos(2, 2));
             first.PressDash();
 
             TurnInputController reentered = DashLevel();
