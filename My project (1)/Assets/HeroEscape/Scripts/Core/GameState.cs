@@ -17,7 +17,10 @@ namespace HeroEscape.Core
     /// </summary>
     public sealed class GameState : IEquatable<GameState>
     {
+        static readonly GridPos[] NoBarriers = new GridPos[0];
+
         EnemyState[] enemies;
+        GridPos[] barriers = NoBarriers;
 
         public LevelData Level { get; private set; }
         public GridPos HeroPos { get; private set; }
@@ -35,6 +38,18 @@ namespace HeroEscape.Core
 
         /// <summary>Đã dùng thẻ phụ trợ trong lượt Hero hiện tại. Xóa khi bắt đầu lượt Hero mới.</summary>
         public bool SupportUsedThisTurn { get; private set; }
+
+        /// <summary>Số lần dùng thẻ Barrier còn lại trong lần chơi này.</summary>
+        public int BarrierUsesLeft { get; private set; }
+
+        /// <summary>
+        /// Ô đang có vật cản tạm (Barrier), sắp theo (Y, X). Lớp riêng, không đổi địa hình gốc của level. Mọi vật cản
+        /// hết hiệu lực cùng lúc ở cuối pha địch kế tiếp, nên không cần lưu thời hạn riêng (luôn còn đúng một pha).
+        /// </summary>
+        public IReadOnlyList<GridPos> Barriers => barriers;
+
+        /// <summary>Số pha địch mỗi vật cản tạm còn tồn tại (hiển thị nhãn).</summary>
+        public const int BarrierPhases = 1;
 
         // Lối tắt cho màn chỉ có một X01 (X đầu tiên theo SpawnIndex).
         public GridPos EnemyPos => enemies[0].Pos;
@@ -55,6 +70,7 @@ namespace HeroEscape.Core
                 Outcome = GameOutcome.Playing,
                 DashUsesLeft = level.DashMaxUses,
                 StasisUsesLeft = level.StasisMaxUses,
+                BarrierUsesLeft = level.BarrierMaxUses,
                 SupportUsedThisTurn = false,
             };
         }
@@ -110,6 +126,27 @@ namespace HeroEscape.Core
             return s;
         }
 
+        public bool HasBarrierAt(GridPos cell) => GridRules.Contains(barriers, cell);
+
+        /// <summary>Đặt vật cản tạm tại <paramref name="cell"/>: trừ một lần dùng Barrier, đánh dấu đã dùng phụ trợ.</summary>
+        public GameState WithBarrierPlaced(GridPos cell)
+        {
+            GameState s = Clone();
+            s.barriers = barriers.Append(cell).OrderBy(p => p.Y).ThenBy(p => p.X).ToArray();
+            s.BarrierUsesLeft--;
+            s.SupportUsedThisTurn = true;
+            return s;
+        }
+
+        /// <summary>Xóa mọi vật cản tạm (cuối pha địch). Không đụng tới địa hình gốc.</summary>
+        public GameState WithBarriersCleared()
+        {
+            if (barriers.Length == 0) return this;
+            GameState s = Clone();
+            s.barriers = NoBarriers;
+            return s;
+        }
+
         /// <summary>Kết thúc vòng: sang lượt Hero mới, xóa cờ đã dùng phụ trợ.</summary>
         public GameState WithNextRound() { GameState s = Clone(); s.Round++; s.SupportUsedThisTurn = false; return s; }
 
@@ -117,7 +154,8 @@ namespace HeroEscape.Core
             other != null && ReferenceEquals(Level, other.Level) && HeroPos == other.HeroPos &&
             Round == other.Round && Outcome == other.Outcome &&
             DashUsesLeft == other.DashUsesLeft && StasisUsesLeft == other.StasisUsesLeft &&
-            SupportUsedThisTurn == other.SupportUsedThisTurn && enemies.SequenceEqual(other.enemies);
+            SupportUsedThisTurn == other.SupportUsedThisTurn && BarrierUsesLeft == other.BarrierUsesLeft &&
+            enemies.SequenceEqual(other.enemies) && barriers.SequenceEqual(other.barriers);
 
         public override bool Equals(object obj) => Equals(obj as GameState);
 
@@ -129,12 +167,15 @@ namespace HeroEscape.Core
             hash = hash * 397 ^ DashUsesLeft;
             hash = hash * 397 ^ StasisUsesLeft;
             hash = hash * 397 ^ (SupportUsedThisTurn ? 1 : 0);
+            hash = hash * 397 ^ BarrierUsesLeft;
             foreach (EnemyState e in enemies) hash = hash * 397 ^ e.GetHashCode();
+            foreach (GridPos b in barriers) hash = hash * 397 ^ b.GetHashCode();
             return hash;
         }
 
         public override string ToString() =>
             $"Vòng {Round} Hero{HeroPos} {string.Join(" ", enemies)} " +
-            $"Dash {DashUsesLeft} Stasis {StasisUsesLeft}{(SupportUsedThisTurn ? " (đã dùng phụ trợ)" : "")} {Outcome}";
+            $"Dash {DashUsesLeft} Stasis {StasisUsesLeft} Barrier {BarrierUsesLeft}" +
+            $"{(barriers.Length > 0 ? " vật cản " + string.Join(",", barriers) : "")}{(SupportUsedThisTurn ? " (đã dùng phụ trợ)" : "")} {Outcome}";
     }
 }

@@ -34,6 +34,14 @@ Quy ước trạng thái: **Passed** = đã chạy hoặc quan sát trực tiế
 
 Các package thêm từ template URP 2D được giữ nguyên theo TechnicalDecisions D3.
 
+**Plugin ngoài Package Manager** (thêm ở Milestone 08, TechnicalDecisions D11):
+
+| Plugin | Phiên bản | Nguồn | Vị trí |
+|---|---|---|---|
+| DOTween (bản miễn phí) | 1.3.030 (2026-06-23) | `https://dotween.demigiant.com/downloads/DOTween_1_3_030.zip`, SHA-256 `62a0ececd274e1587eb0dea15f3afab392fbda5a0f8cac7287fbf7f64925a1ba` | `Assets/Plugins/Demigiant/DOTween/` (không gồm `*.dll.mdb`) |
+
+Kiểm tra: E17 (import + Setup DOTween trong Editor) — **Not run**. Chi tiết ở `Docs/Milestone08.md`.
+
 - SHA-256 `manifest.json`: `eadb2409e74e98314259257a36e15be39d62670f2c8e7b3dcd6fe80eb6388242`
 - SHA-256 `packages-lock.json`: `d5652561baf9d7412c4917a17bd8067b41e959a81fd8539d73655175273c95e7`
 
@@ -68,6 +76,7 @@ Các package thêm từ template URP 2D được giữ nguyên theo TechnicalDec
 | E14 | `.gitignore` đúng cho project lồng | Passed | `git check-ignore`: Library/Temp/Logs/UserSettings/.sln/.csproj bị ignore; `Packages/manifest.json`, `packages-lock.json`, `Assets/**/*.dll`, `.meta`, thư mục `Assets/**/Debug|Build` **không** bị ignore. `git ls-files -ci --exclude-standard` rỗng (không file staged nào khớp ignore). |
 | E15 | `.gitattributes` | Passed | `git check-attr`: `.unity`, `.meta`, `.cs`, `.prefab` là text, không LFS; `.psd`, `.wav`, `ArtSource/**/*.png` dùng LFS; `.png` trong Assets là binary thường. Cả 45 file staged đều LF nên `text=auto` không làm đổi nội dung index. |
 | E16 | Build từ clean checkout | Not run | Chưa có commit. |
+| E17 | DOTween 1.3.030: Unity import, Setup DOTween, compile trong Editor không lỗi | Not run | File đã chép vào `Assets/Plugins/Demigiant/DOTween`. Module `.cs` compile được ngoài Unity với DLL 6000.3.8f1. Editor đang mở project nên chưa chạy batchmode. |
 
 ## 5. Rủi ro môi trường quan sát được
 

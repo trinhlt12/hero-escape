@@ -10,6 +10,7 @@ namespace HeroEscape.Unity
         Normal,
         ChoosingDashTarget,
         ChoosingStasisTarget,
+        ChoosingBarrierTarget,
     }
 
     /// <summary>Kết quả một thao tác input: lượt đã gửi (nếu có) và phản hồi cho người chơi.</summary>
@@ -41,12 +42,17 @@ namespace HeroEscape.Unity
 
         /// <summary>X01 sẽ bị khóa nếu dùng Stasis; không mô phỏng pha địch.</summary>
         StasisTarget,
+
+        /// <summary>Vị trí vật cản nếu đặt Barrier ở ô này; không đoán hành động chính, không mô phỏng pha địch.</summary>
+        BarrierTarget,
     }
 
     /// <summary>Kết quả dự kiến khi hover. Chỉ để hiển thị; không bao giờ được áp vào trạng thái thật.</summary>
     public sealed class TurnPreview
     {
         public static readonly TurnPreview None = new TurnPreview(PreviewKind.None, null, -1);
+
+        public static TurnPreview Barrier(GridPos cell) => new TurnPreview(PreviewKind.BarrierTarget, null, -1, cell);
 
         public PreviewKind Kind { get; }
 
@@ -56,11 +62,15 @@ namespace HeroEscape.Unity
         /// <summary>Với <see cref="PreviewKind.StasisTarget"/>: chỉ số X01 (theo SpawnIndex) sẽ bị khóa.</summary>
         public int StasisEnemyIndex { get; }
 
-        public TurnPreview(PreviewKind kind, TurnResult turn, int stasisEnemyIndex)
+        /// <summary>Với <see cref="PreviewKind.BarrierTarget"/>: ô sẽ có vật cản.</summary>
+        public GridPos BarrierCell { get; }
+
+        public TurnPreview(PreviewKind kind, TurnResult turn, int stasisEnemyIndex, GridPos barrierCell = default)
         {
             Kind = kind;
             Turn = turn;
             StasisEnemyIndex = stasisEnemyIndex;
+            BarrierCell = barrierCell;
         }
 
         public bool WillLose => Kind == PreviewKind.MainAction && Turn.NextState.Outcome == GameOutcome.Lost;
@@ -101,6 +111,7 @@ namespace HeroEscape.Unity
         public GameSession Session => session;
         public bool LevelHasDash => session.Level.DashMaxUses > 0;
         public bool LevelHasStasis => session.Level.StasisMaxUses > 0;
+        public bool LevelHasBarrier => session.Level.BarrierMaxUses > 0;
         public bool CanAct => !Busy && session.Current.Outcome == GameOutcome.Playing;
 
         /// <summary>Wait chỉ dùng được ở chế độ Move.</summary>
@@ -114,6 +125,11 @@ namespace HeroEscape.Unity
         public bool CanPressStasis =>
             CanAct && LevelHasStasis && (Mode == InputMode.ChoosingStasisTarget ||
                                          (session.Current.StasisUsesLeft > 0 && !session.Current.SupportUsedThisTurn));
+
+        /// <summary>Thẻ Barrier bấm được khi còn lượt và chưa dùng phụ trợ lượt này, hoặc đang ở chế độ Barrier (để trở về Move).</summary>
+        public bool CanPressBarrier =>
+            CanAct && LevelHasBarrier && (Mode == InputMode.ChoosingBarrierTarget ||
+                                          (session.Current.BarrierUsesLeft > 0 && !session.Current.SupportUsedThisTurn));
 
         // ---------------- Highlight ----------------
 
@@ -150,6 +166,14 @@ namespace HeroEscape.Unity
                 case InputMode.ChoosingStasisTarget:
                     foreach (EnemyState enemy in session.Current.Enemies)
                         if (session.PreviewStasis(enemy.Id).Accepted) cells.Add(enemy.Pos);
+                    break;
+                case InputMode.ChoosingBarrierTarget:
+                    foreach (Direction direction in Directions.Order)
+                    {
+                        GridPos cell = session.Current.HeroPos + direction.ToDelta();
+                        if (session.PreviewBarrier(cell).Accepted) cells.Add(cell);
+                    }
+
                     break;
             }
 
@@ -189,6 +213,13 @@ namespace HeroEscape.Unity
             }
 
             if (!cell.HasValue) return TurnPreview.None;
+
+            if (Mode == InputMode.ChoosingBarrierTarget)
+            {
+                if (!session.PreviewBarrier(cell.Value).Accepted) return TurnPreview.None;
+                PreviewEvaluations++;
+                return TurnPreview.Barrier(cell.Value);
+            }
 
             if (Mode == InputMode.ChoosingStasisTarget)
             {
@@ -233,6 +264,7 @@ namespace HeroEscape.Unity
             switch (Mode)
             {
                 case InputMode.ChoosingStasisTarget: return ChooseStasisTarget(cell);
+                case InputMode.ChoosingBarrierTarget: return ChooseBarrierTarget(cell);
                 case InputMode.ChoosingDashTarget: return ChooseDashTarget(cell);
                 default: return ChooseMoveTarget(cell);
             }
@@ -288,6 +320,21 @@ namespace HeroEscape.Unity
             return Feedback(UiText.StasisApplied);
         }
 
+        /// <summary>
+        /// Chế độ Barrier: bấm ô kề Hero để đặt vật cản ngay (không di chuyển Hero), trở về Move; Hero vẫn còn hành động chính.
+        /// Ô sai: giữ chế độ, không tiêu hao gì.
+        /// </summary>
+        InputResponse ChooseBarrierTarget(GridPos? cell)
+        {
+            if (!cell.HasValue) return Feedback(UiText.BarrierPrompt);
+
+            SupportResult result = session.ApplyBarrier(cell.Value);
+            if (!result.Accepted) return Feedback(UiText.BarrierError(result.Error));
+
+            Mode = InputMode.Normal;
+            return Feedback(UiText.BarrierPlaced);
+        }
+
         public InputResponse PressWait() => CanWait ? Submit(HeroAction.Wait) : InputResponse.None;
 
         /// <summary>Bật/tắt chế độ Dash. Chỉ đổi chế độ, không tiêu hao. Đang ở Stasis thì chuyển thẳng sang Dash.</summary>
@@ -325,6 +372,24 @@ namespace HeroEscape.Unity
             return Feedback(UiText.StasisPrompt);
         }
 
+        /// <summary>Bật/tắt chế độ Barrier. Chỉ đổi chế độ, không tiêu hao thẻ. Đang ở chế độ thẻ khác thì chuyển thẳng sang Barrier.</summary>
+        public InputResponse PressBarrier()
+        {
+            if (!CanAct || !LevelHasBarrier) return InputResponse.None;
+
+            if (Mode == InputMode.ChoosingBarrierTarget)
+            {
+                Mode = InputMode.Normal;
+                return Feedback(UiText.BarrierCancelled);
+            }
+
+            if (session.Current.BarrierUsesLeft <= 0) return Feedback(UiText.NoBarrierUsesLeft);
+            if (session.Current.SupportUsedThisTurn) return Feedback(UiText.SupportAlreadyUsed);
+
+            Mode = InputMode.ChoosingBarrierTarget;
+            return Feedback(UiText.BarrierPrompt);
+        }
+
         /// <summary>Escape: trở về chế độ Move. Không tốn lượt, không hoàn tác thẻ đã áp.</summary>
         public InputResponse Cancel()
         {
@@ -336,6 +401,9 @@ namespace HeroEscape.Unity
                 case InputMode.ChoosingStasisTarget:
                     Mode = InputMode.Normal;
                     return Feedback(UiText.StasisCancelled);
+                case InputMode.ChoosingBarrierTarget:
+                    Mode = InputMode.Normal;
+                    return Feedback(UiText.BarrierCancelled);
                 default:
                     return InputResponse.None;
             }

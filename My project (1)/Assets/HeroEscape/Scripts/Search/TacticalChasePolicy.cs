@@ -25,13 +25,14 @@ namespace HeroEscape.Search
         public int ResponsesEvaluated { get; internal set; }
         public int DashResponses { get; internal set; }
         public int StasisResponses { get; internal set; }
+        public int BarrierResponses { get; internal set; }
 
         public const int InfiniteDistance = int.MaxValue;
 
         public override string ToString() =>
             $"{(Step.HasValue ? Step.Value.ToString() : "WAIT")}: win={HeroCanWin} safe={SafeResponses} " +
             $"dist={(MaxSafeDistance == InfiniteDistance ? "inf" : MaxSafeDistance.ToString())} " +
-            $"(phản ứng {ResponsesEvaluated}, Dash {DashResponses}, có Stasis {StasisResponses})";
+            $"(phản ứng {ResponsesEvaluated}, Dash {DashResponses}, có Stasis {StasisResponses}, có Barrier {BarrierResponses})";
     }
 
     /// <summary>Một quyết định của Tactical AI.</summary>
@@ -56,7 +57,8 @@ namespace HeroEscape.Search
 
     /// <summary>
     /// Tactical AI của X01 (GDD mục 5, TDD mục 9), nhìn trước một vòng:
-    /// X chọn nước hiện tại → Hero phản ứng đầy đủ (không/có Stasis, rồi Move/Wait/Dash với tài nguyên thật) →
+    /// X chọn nước hiện tại → Hero phản ứng đầy đủ (không phụ trợ, Stasis lên từng X, hoặc Barrier ở từng ô kề — tối đa một
+    /// phụ trợ theo luật; rồi Move/Wait/Dash với tài nguyên thật) →
     /// một pha địch Basic. Không gọi Tactical đệ quy. Chỉ dùng thông tin công khai của trạng thái; không ngẫu nhiên,
     /// không phụ thuộc thời gian: cùng trạng thái và cấu hình luôn cho cùng quyết định.
     ///
@@ -68,7 +70,8 @@ namespace HeroEscape.Search
     /// 5. Thứ tự cố định N, NE, E, SE, S, SW, W, NW, Wait.
     ///
     /// Ngân sách: số chuyển trạng thái mô phỏng cho một quyết định. Một chuyển trạng thái = một lần gọi
-    /// <see cref="Simulation.ResolveRemainingEnemyPhase"/>, <see cref="Simulation.ApplyStasis(GameState,string)"/> hoặc
+    /// <see cref="Simulation.ResolveRemainingEnemyPhase"/>, <see cref="Simulation.ApplyStasis(GameState,string)"/>,
+    /// <see cref="Simulation.ApplyBarrier"/> hoặc
     /// <see cref="Simulation.Resolve"/> trong tìm kiếm (kể cả lần bị từ chối). BFS đo khoảng cách không tính.
     /// Hết ngân sách: bỏ kết quả dở dang, chọn bằng Basic AI từ trạng thái gốc của quyết định.
     /// </summary>
@@ -125,7 +128,7 @@ namespace HeroEscape.Search
             // A. Ứng viên: các bước hợp lệ theo thứ tự cố định, Wait cuối cùng.
             var steps = new List<Direction?>();
             foreach (Direction direction in Directions.Order)
-                if (GridRules.CheckStep(state.Level, Mover.Enemy, self.Pos, direction, state.HeroPos, others) == StepCheck.Ok)
+                if (GridRules.CheckStep(state.Level, Mover.Enemy, self.Pos, direction, state.HeroPos, others, state.Barriers) == StepCheck.Ok)
                     steps.Add(direction);
             steps.Add(null);
 
@@ -173,19 +176,31 @@ namespace HeroEscape.Search
 
             var safeStates = new HashSet<GameState>();
 
-            // Phản ứng của Hero: không dùng thẻ, hoặc Stasis lên từng X hợp lệ; rồi Move/Wait/Dash với tài nguyên thật.
-            var beforeMain = new List<(bool stasis, GameState state)> { (false, heroTurn) };
+            // Phản ứng của Hero: không dùng thẻ, Stasis lên từng X hợp lệ, hoặc Barrier ở từng ô kề hợp lệ (tối đa một phụ trợ
+            // mỗi lượt do Simulation kiểm tra); rồi Move/Wait/Dash với tài nguyên thật. Vật cản tạm tồn tại qua hành động chính
+            // và pha địch Basic trong Resolve, rồi bị xóa đúng như gameplay.
+            var beforeMain = new List<(SupportCard card, GameState state)> { (SupportCard.None, heroTurn) };
             if (heroTurn.StasisUsesLeft > 0 && !heroTurn.SupportUsedThisTurn)
             {
                 foreach (EnemyState enemy in heroTurn.Enemies)
                 {
                     if (!Spend(ref transitions)) return null;
                     SupportResult support = basicSimulation.ApplyStasis(heroTurn, enemy.Id);
-                    if (support.Accepted) beforeMain.Add((true, support.NextState));
+                    if (support.Accepted) beforeMain.Add((SupportCard.Stasis, support.NextState));
                 }
             }
 
-            foreach ((bool stasis, GameState pre) in beforeMain)
+            if (heroTurn.Level.BarrierMaxUses > 0 && heroTurn.BarrierUsesLeft > 0 && !heroTurn.SupportUsedThisTurn)
+            {
+                foreach (Direction direction in Directions.Order)
+                {
+                    if (!Spend(ref transitions)) return null;
+                    SupportResult support = basicSimulation.ApplyBarrier(heroTurn, heroTurn.HeroPos + direction.ToDelta());
+                    if (support.Accepted) beforeMain.Add((SupportCard.Barrier, support.NextState));
+                }
+            }
+
+            foreach ((SupportCard card, GameState pre) in beforeMain)
             {
                 bool dashAvailable = pre.Level.DashMaxUses > 0 && pre.DashUsesLeft > 0;
                 for (int a = 0; a < MovesAndWait.Length + (dashAvailable ? 8 : 0); a++)
@@ -197,7 +212,8 @@ namespace HeroEscape.Search
 
                     candidate.ResponsesEvaluated++;
                     if (action.Kind == HeroActionKind.Dash) candidate.DashResponses++;
-                    if (stasis) candidate.StasisResponses++;
+                    if (card == SupportCard.Stasis) candidate.StasisResponses++;
+                    if (card == SupportCard.Barrier) candidate.BarrierResponses++;
 
                     GameState result = response.NextState;
                     if (result.Outcome == GameOutcome.Lost) continue;
@@ -211,8 +227,7 @@ namespace HeroEscape.Search
                     }
                     else
                     {
-                        List<GridPos> path = EnemyPathfinder.FindPathToHero(result.Level, result.Enemies[enemyIndex].Pos, result.HeroPos,
-                            result.EnemyCells(enemyIndex));
+                        List<GridPos> path = EnemyPathfinder.FindPathToHero(result, enemyIndex);
                         distance = path == null ? TacticalCandidate.InfiniteDistance : path.Count;
                     }
 
@@ -244,6 +259,13 @@ namespace HeroEscape.Search
             Direction? chosen = basicPolicy.TryChooseStep(state, enemyIndex, out Direction direction) ? direction : (Direction?)null;
             return new TacticalDecision { EnemyIndex = enemyIndex, Chosen = chosen, UsedFallback = true, Transitions = transitions };
         }
+    }
+
+    enum SupportCard
+    {
+        None,
+        Stasis,
+        Barrier,
     }
 
     /// <summary>Tạo AI theo profile cấu hình của level.</summary>

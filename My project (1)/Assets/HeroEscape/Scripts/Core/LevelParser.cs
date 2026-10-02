@@ -13,20 +13,24 @@ namespace HeroEscape.Core
     /// H . . . X      (X = một X01; nhiều X01 dùng 1, 2, 3 theo thứ tự hành động)
     /// dash: 2        (tùy chọn; số lần Dash mỗi lần chơi, mặc định 0 = không có Dash)
     /// stasis: 1      (tùy chọn; số lần dùng thẻ Stasis, mặc định 0 = không có Stasis)
+    /// barrier: 1     (tùy chọn; số lần dùng thẻ Barrier, mặc định 0 = không có Barrier)
     /// ai: tactical   (tùy chọn; profile AI của X01: basic hoặc tactical, mặc định basic)
-    /// solution: N NE DASH-E STASIS+WAIT
+    /// solution: N NE DASH-E STASIS+WAIT BARRIER-N+E
     /// </code>
     /// Ký hiệu: . Sàn, # Tường, E Cửa, H Hero (trên Sàn), X X01 (trên Sàn); 1/2/3 = X01 có ID X1/X2/X3 hành động theo thứ tự đó.
     /// Dấu cách trong hàng được bỏ qua.
     /// Bước lời giải (một lượt): một hướng (N NE E SE S SW W NW), WAIT, hoặc DASH-hướng (ví dụ DASH-NE).
     /// Tiền tố STASIS+ nghĩa là dùng Stasis lên X01 trước hành động chính của lượt đó (ví dụ STASIS+DASH-E);
     /// với nhiều X01 phải ghi mục tiêu: STASIS(X2)+DASH-E.
+    /// Tiền tố BARRIER-hướng+ nghĩa là đặt Barrier ở ô kề Hero theo hướng đó trước hành động chính (ví dụ BARRIER-NE+WAIT).
+    /// Có thể ghi nhiều dòng solution: (mỗi dòng một lời giải độc lập); dòng đầu là lời giải tham chiếu.
     /// </summary>
     public static class LevelParser
     {
         public const string WaitToken = "WAIT";
         public const string DashPrefix = "DASH-";
         public const string StasisPrefix = "STASIS+";
+        public const string BarrierPrefix = "BARRIER-";
         const string StasisWord = "STASIS";
 
         public static LevelData Parse(string text)
@@ -34,9 +38,10 @@ namespace HeroEscape.Core
             if (text == null) throw new LevelFormatException("Nội dung level rỗng.");
 
             string id = null;
-            string solution = null;
+            var solutionLines = new List<string>();
             int dashMaxUses = 0;
             int stasisMaxUses = 0;
+            int barrierMaxUses = 0;
             AiProfile aiProfile = AiProfile.Basic;
             var rows = new List<(int line, string row)>();
             bool inGrid = false;
@@ -59,7 +64,7 @@ namespace HeroEscape.Core
                 }
                 else if (TryReadKey(line, "solution:", out string solutionValue))
                 {
-                    solution = solutionValue;
+                    solutionLines.Add(solutionValue);
                     inGrid = false;
                 }
                 else if (TryReadKey(line, "dash:", out string dashValue))
@@ -72,6 +77,12 @@ namespace HeroEscape.Core
                 {
                     if (!int.TryParse(stasisValue, out stasisMaxUses))
                         throw Error(i, $"Giá trị 'stasis:' phải là số nguyên, đang là '{stasisValue}'.");
+                    inGrid = false;
+                }
+                else if (TryReadKey(line, "barrier:", out string barrierValue))
+                {
+                    if (!int.TryParse(barrierValue, out barrierMaxUses))
+                        throw Error(i, $"Giá trị 'barrier:' phải là số nguyên, đang là '{barrierValue}'.");
                     inGrid = false;
                 }
                 else if (TryReadKey(line, "ai:", out string aiValue))
@@ -141,42 +152,95 @@ namespace HeroEscape.Core
             if (!hero.HasValue) throw new LevelFormatException($"[{id}] Lưới thiếu Hero (H).");
             if (enemies.Count == 0) throw new LevelFormatException($"[{id}] Lưới thiếu X01 (X hoặc 1, 2, 3).");
 
-            List<HeroAction> actions = ParseSolution(id, solution, enemies, out Dictionary<int, string> stasisTargets);
-            return new LevelData(id, width, height, cells, hero.Value, enemies, actions, dashMaxUses, stasisMaxUses, stasisTargets, aiProfile);
+            var solutions = new List<List<SolutionTurn>>();
+            foreach (string line in solutionLines) solutions.Add(ParseTurns(id, line, enemies));
+
+            // Lời giải đầu tiên giữ dạng cũ (chuỗi hành động + bảng phụ trợ theo lượt) để test và công cụ cũ dùng tiếp.
+            List<SolutionTurn> reference = solutions.Count > 0 ? solutions[0] : new List<SolutionTurn>();
+            var actions = new List<HeroAction>();
+            var stasisTargets = new Dictionary<int, string>();
+            var barrierDirections = new Dictionary<int, Direction>();
+            for (int t = 0; t < reference.Count; t++)
+            {
+                actions.Add(reference[t].Main);
+                if (reference[t].StasisTarget != null) stasisTargets[t] = reference[t].StasisTarget;
+                if (reference[t].BarrierDirection.HasValue) barrierDirections[t] = reference[t].BarrierDirection.Value;
+            }
+
+            var alternatives = new List<IReadOnlyList<SolutionTurn>>();
+            for (int s = 1; s < solutions.Count; s++) alternatives.Add(solutions[s]);
+
+            return new LevelData(id, width, height, cells, hero.Value, enemies, actions, dashMaxUses, stasisMaxUses, stasisTargets, aiProfile,
+                barrierMaxUses, barrierDirections, alternatives);
         }
 
-        public static IReadOnlyList<HeroAction> ParseActions(string levelId, string text) =>
-            ParseSolution(levelId, text, null, out _);
-
-        /// <param name="enemies">X01 của level; dùng để xác định mục tiêu khi viết tắt STASIS+ (chỉ hợp lệ khi có đúng một X01).</param>
-        static List<HeroAction> ParseSolution(string levelId, string text, List<EnemySpawn> enemies, out Dictionary<int, string> stasisTargets)
+        public static IReadOnlyList<HeroAction> ParseActions(string levelId, string text)
         {
             var actions = new List<HeroAction>();
-            stasisTargets = new Dictionary<int, string>();
-            if (string.IsNullOrWhiteSpace(text)) return actions;
+            foreach (SolutionTurn turn in ParseTurns(levelId, text, null)) actions.Add(turn.Main);
+            return actions;
+        }
+
+        /// <summary>Đọc một dòng lời giải thành các lượt (phụ trợ tùy chọn + hành động chính).</summary>
+        /// <param name="enemies">X01 của level; dùng để xác định mục tiêu khi viết tắt STASIS+ (chỉ hợp lệ khi có đúng một X01).</param>
+        public static List<SolutionTurn> ParseTurns(string levelId, string text, List<EnemySpawn> enemies)
+        {
+            var turns = new List<SolutionTurn>();
+            if (string.IsNullOrWhiteSpace(text)) return turns;
 
             foreach (string rawToken in text.Split(new[] { ' ', ',', '\t' }, StringSplitOptions.RemoveEmptyEntries))
             {
                 string token = rawToken;
-                if (TryReadStasis(levelId, rawToken, enemies, out string target, out string rest))
+                string target = null;
+                Direction? barrier = null;
+                // Tiền tố phụ trợ. Luật tối đa một phụ trợ mỗi lượt do Simulation kiểm tra khi phát lại, không phải parser.
+                while (true)
                 {
-                    stasisTargets[actions.Count] = target;
-                    token = rest;
+                    if (target == null && TryReadStasis(levelId, token, enemies, out string stasisTarget, out string afterStasis))
+                    {
+                        target = stasisTarget;
+                        token = afterStasis;
+                    }
+                    else if (!barrier.HasValue && TryReadBarrier(levelId, token, out Direction barrierDirection, out string afterBarrier))
+                    {
+                        barrier = barrierDirection;
+                        token = afterBarrier;
+                    }
+                    else break;
                 }
 
+                HeroAction main;
                 if (string.Equals(token, WaitToken, StringComparison.OrdinalIgnoreCase))
-                    actions.Add(HeroAction.Wait);
+                    main = HeroAction.Wait;
                 else if (Directions.TryParse(token, out Direction direction))
-                    actions.Add(HeroAction.Move(direction));
+                    main = HeroAction.Move(direction);
                 else if (token.StartsWith(DashPrefix, StringComparison.OrdinalIgnoreCase) &&
                          Directions.TryParse(token.Substring(DashPrefix.Length), out Direction dashDirection))
-                    actions.Add(HeroAction.Dash(dashDirection));
+                    main = HeroAction.Dash(dashDirection);
                 else
                     throw new LevelFormatException($"[{levelId}] Lời giải có bước '{rawToken}' không hợp lệ. Dùng N NE E SE S SW W NW, " +
-                                                   $"{WaitToken}, {DashPrefix}<hướng>, có thể kèm tiền tố {StasisPrefix}.");
+                                                   $"{WaitToken}, {DashPrefix}<hướng>, có thể kèm tiền tố {StasisPrefix} hoặc {BarrierPrefix}<hướng>+.");
+
+                turns.Add(new SolutionTurn(target, barrier, main));
             }
 
-            return actions;
+            return turns;
+        }
+
+        /// <summary>Đọc tiền tố "BARRIER-hướng+" của một bước lời giải.</summary>
+        static bool TryReadBarrier(string levelId, string token, out Direction direction, out string rest)
+        {
+            direction = default;
+            rest = token;
+            if (!token.StartsWith(BarrierPrefix, StringComparison.OrdinalIgnoreCase)) return false;
+
+            int plus = token.IndexOf('+');
+            if (plus < 0) throw new LevelFormatException($"[{levelId}] Bước '{token}' thiếu dấu '+' trước hành động chính.");
+            string head = token.Substring(BarrierPrefix.Length, plus - BarrierPrefix.Length);
+            if (!Directions.TryParse(head, out direction))
+                throw new LevelFormatException($"[{levelId}] Bước '{token}': hướng Barrier '{head}' không hợp lệ (N NE E SE S SW W NW).");
+            rest = token.Substring(plus + 1);
+            return true;
         }
 
         /// <summary>

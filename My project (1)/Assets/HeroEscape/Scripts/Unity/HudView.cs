@@ -7,8 +7,9 @@ using UnityEngine.UI;
 namespace HeroEscape.Unity
 {
     /// <summary>
-    /// UI tạm bằng uGUI: tiêu đề màn, trạng thái, thông báo, hướng dẫn và các nút Wait, Dash, Restart,
-    /// Next Level, Back. Chỉ hiển thị; GameController quyết định nội dung và trạng thái nút.
+    /// UI tạm bằng uGUI: tiêu đề màn, trạng thái, thông báo, hướng dẫn và các nút Wait, Restart,
+    /// Next Level, Back, Level Select. Dash/Stasis kích hoạt bằng tay bài (HandView), không có nút riêng.
+    /// Chỉ hiển thị; GameController quyết định nội dung và trạng thái nút.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class HudView : MonoBehaviour
@@ -18,23 +19,18 @@ namespace HeroEscape.Unity
         [SerializeField] Text noticeText;
         [SerializeField] Text hintText;
         [SerializeField] Button waitButton;
-        [SerializeField] Button dashButton;
-        [SerializeField] Button stasisButton;
         [SerializeField] Button restartButton;
         [SerializeField] Button nextLevelButton;
         [SerializeField] Button backButton;
         [SerializeField] Button levelSelectButton;
-        [Tooltip("Màu nút Dash/Stasis khi đang chọn hướng hoặc mục tiêu.")]
-        [SerializeField] Color dashSelectingColor = new Color32(0xE8, 0xB8, 0x49, 0xFF);
+        [Tooltip("Panel dưới. Chiều cao trong scene đã gồm phần chừa cho tay bài; màn không có thẻ thì thu phần đó lại.")]
+        [SerializeField] RectTransform bottomPanel;
+        [Tooltip("Chiều cao phần đáy panel dành cho tay bài (đơn vị canvas).")]
+        [SerializeField, Min(0f)] float handSpace = 270f;
 
-        Image dashImage;
-        Color dashNormalColor;
-        Image stasisImage;
-        Color stasisNormalColor;
+        float bottomPanelFullHeight = -1f;
 
         public event Action WaitClicked;
-        public event Action DashClicked;
-        public event Action StasisClicked;
         public event Action RestartClicked;
         public event Action NextLevelClicked;
         public event Action BackClicked;
@@ -51,17 +47,10 @@ namespace HeroEscape.Unity
             AddHoverRelay(waitButton.gameObject, hovered => WaitHoverChanged?.Invoke(hovered));
 
             waitButton.onClick.AddListener(() => WaitClicked?.Invoke());
-            dashButton.onClick.AddListener(() => DashClicked?.Invoke());
-            stasisButton.onClick.AddListener(() => StasisClicked?.Invoke());
             restartButton.onClick.AddListener(() => RestartClicked?.Invoke());
             nextLevelButton.onClick.AddListener(() => NextLevelClicked?.Invoke());
             backButton.onClick.AddListener(() => BackClicked?.Invoke());
             levelSelectButton.onClick.AddListener(() => LevelSelectClicked?.Invoke());
-
-            dashImage = dashButton.targetGraphic as Image;
-            if (dashImage != null) dashNormalColor = dashImage.color;
-            stasisImage = stasisButton.targetGraphic as Image;
-            if (stasisImage != null) stasisNormalColor = stasisImage.color;
 
             SetLabel(waitButton, UiText.WaitButton);
             SetLabel(restartButton, UiText.RestartButton);
@@ -104,20 +93,16 @@ namespace HeroEscape.Unity
 
         public void SetLevelSelectInteractable(bool interactable) => levelSelectButton.interactable = interactable;
 
-        public void SetDash(bool visible, string label, bool interactable, bool selecting)
+        /// <summary>
+        /// Chừa (true) hoặc thu lại (false) phần đáy panel dưới dành cho tay bài. Gọi khi vào màn, không gọi giữa màn,
+        /// nên bàn cờ không đổi kích thước khi thẻ cuối cùng rời tay. Nội dung panel neo theo cạnh trên nên không dịch chuyển.
+        /// </summary>
+        public void SetHandSpace(bool reserve)
         {
-            dashButton.gameObject.SetActive(visible);
-            SetLabel(dashButton, label);
-            dashButton.interactable = interactable;
-            if (dashImage != null) dashImage.color = selecting ? dashSelectingColor : dashNormalColor;
-        }
-
-        public void SetStasis(bool visible, string label, bool interactable, bool selecting)
-        {
-            stasisButton.gameObject.SetActive(visible);
-            SetLabel(stasisButton, label);
-            stasisButton.interactable = interactable;
-            if (stasisImage != null) stasisImage.color = selecting ? dashSelectingColor : stasisNormalColor;
+            if (bottomPanel == null) return;
+            if (bottomPanelFullHeight < 0f) bottomPanelFullHeight = bottomPanel.sizeDelta.y;
+            float height = reserve ? bottomPanelFullHeight : Mathf.Max(0f, bottomPanelFullHeight - handSpace);
+            bottomPanel.sizeDelta = new Vector2(bottomPanel.sizeDelta.x, height);
         }
 
         public void SetNavigation(bool showNext, bool showBack, string backLabel)

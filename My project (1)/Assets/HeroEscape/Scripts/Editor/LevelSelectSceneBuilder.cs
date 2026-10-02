@@ -111,7 +111,7 @@ namespace HeroEscape.EditorTools
                 new Vector2(40f, 30f), new Vector2(-40f, 100f));
             Text message = B.ConfigureText(messageRect.gameObject.AddComponent<Text>(), 32, B.Highlight, FontStyle.Normal, string.Empty);
 
-            // Cột nút: 5 x 220 + 4 x 28 = 1212 đơn vị, nằm gọn trong vùng 1920 - 240 - 120 ở 9:16 (và rộng hơn ở 9:20).
+            // Cột nút: 6 x 220 + 5 x 28 = 1460 đơn vị (Level 01–06), nằm gọn trong vùng 1920 - 240 - 120 = 1560 ở 9:16 (và rộng hơn ở 9:20).
             RectTransform list = B.CreateRect("LevelList", safeArea, Vector2.zero, Vector2.one, new Vector2(80f, 120f), new Vector2(-80f, -240f));
             var layout = list.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperCenter;

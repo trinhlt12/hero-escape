@@ -11,13 +11,13 @@ Thứ tự ưu tiên khi có mâu thuẫn:
 3. **`Docs/TDD_Hero_Escape_Prototype_v0_1.docx`**: kiến trúc, dữ liệu, AI, preview/Undo, solver, Git, kiểm thử. Áp dụng đầy đủ, **trừ** hai điểm đã bị thay ở mục 1.
 4. **`Docs/Art_Guide_Hero_Escape_Prototype_v0_2 (1).docx`**: manifest 26 PNG, quy cách import, hiển thị trạng thái.
 5. **`Docs/Environment.md`**: phiên bản công cụ thực tế và kết quả kiểm tra môi trường (Passed / Failed / Not run).
-6. **`Docs/Milestone01.md`** … **`Docs/Milestone07.md`**: phạm vi khóa và tiến độ từng milestone (Milestone07 là mới nhất). Không triển khai tính năng ngoài phạm vi milestone khi chưa có yêu cầu mới.
+6. **`Docs/Milestone01.md`** … **`Docs/Milestone09.md`**: phạm vi khóa và tiến độ từng milestone (Milestone09 là mới nhất). Không triển khai tính năng ngoài phạm vi milestone khi chưa có yêu cầu mới.
 
 ## Tương tác đã chốt (D8, thay thế GDD mục 4/9, TDD mục 10, Art Guide nếu ghi khác)
 
 - **Không Undo, không nút Confirm, không nút Cancel.** Không tự thêm lại các tính năng này.
 - **Highlight luôn hiện** cho lựa chọn hợp lệ (thay sprite sàn bằng `tile_highlight`); **hover chỉ dự đoán**; **click là thực hiện ngay**.
-- **Dash chọn ô đích** (ô đáp xuống), không chọn hướng bằng ô kề. Nút kỹ năng chỉ đổi chế độ; bấm lại hoặc Escape để về Move.
+- **Dash chọn ô đích** (ô đáp xuống), không chọn hướng bằng ô kề. Chạm thẻ trên tay bài (D11) chỉ đổi chế độ; chạm lại hoặc Escape để về Move.
 - Highlight, preview và thực thi phải dùng chung bộ kiểm tra của Core (`Simulation.TryGetDestination` / `LegalTargets` / `ApplyStasis`); không viết luật thứ hai trong UI.
 
 Text hiển thị trong game bằng **tiếng Anh** (gom trong `UiText.cs`); trả lời Game Designer bằng tiếng Việt.

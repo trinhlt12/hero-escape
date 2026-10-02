@@ -42,6 +42,9 @@ namespace HeroEscape.Core
         /// <summary>Dùng Stasis lên X01 có ID ổn định <paramref name="enemyId"/>. Bị từ chối thì không đổi gì.</summary>
         public SupportResult ApplyStasis(string enemyId) => Commit(simulation.ApplyStasis(Current, enemyId));
 
+        /// <summary>Đặt Barrier ở ô kề Hero <paramref name="targetCell"/>. Bị từ chối thì không đổi gì.</summary>
+        public SupportResult ApplyBarrier(GridPos targetCell) => Commit(simulation.ApplyBarrier(Current, targetCell));
+
         // ---- Chỉ đọc: highlight và preview. Dùng cùng Simulation/AI; trạng thái bất biến nên không thể làm đổi Current. ----
 
         /// <summary>Kết quả dự kiến nếu Hero làm <paramref name="action"/> từ trạng thái hiện tại. Không commit.</summary>
@@ -49,6 +52,9 @@ namespace HeroEscape.Core
 
         /// <summary>Kết quả dự kiến nếu dùng Stasis lên X01 <paramref name="enemyId"/>. Không commit.</summary>
         public SupportResult PreviewStasis(string enemyId) => simulation.ApplyStasis(Current, enemyId);
+
+        /// <summary>Kết quả dự kiến nếu đặt Barrier ở <paramref name="targetCell"/>. Không commit, không chạy pha địch.</summary>
+        public SupportResult PreviewBarrier(GridPos targetCell) => simulation.ApplyBarrier(Current, targetCell);
 
         /// <summary>Các Move hoặc Dash hợp lệ từ trạng thái hiện tại, kèm ô đích.</summary>
         public System.Collections.Generic.List<(HeroAction action, GridPos destination)> LegalTargets(HeroActionKind kind) =>

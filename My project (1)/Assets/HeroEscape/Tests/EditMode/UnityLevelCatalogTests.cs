@@ -25,12 +25,12 @@ namespace HeroEscape.Tests
         }
 
         [Test]
-        public void Catalog_HasFiveLevels_WithStableIdsMatchingTheirLevelFiles()
+        public void Catalog_HasSixLevels_WithStableIdsMatchingTheirLevelFiles()
         {
             LevelCatalog catalog = LoadCatalog();
 
-            CollectionAssert.AreEqual(new[] { "Level 01", "Level 02", "Level 03", "Level 04", "Level 05" }, catalog.Levels.Select(e => e.DisplayName));
-            CollectionAssert.AreEqual(new[] { "Basic Movement", "Dash", "Stasis", "Two Enemies", "Tactical Enemy" }, catalog.Levels.Select(e => e.Description));
+            CollectionAssert.AreEqual(new[] { "Level 01", "Level 02", "Level 03", "Level 04", "Level 05", "Level 06" }, catalog.Levels.Select(e => e.DisplayName));
+            CollectionAssert.AreEqual(new[] { "Basic Movement", "Dash", "Stasis", "Two Enemies", "Tactical Enemy", "Barrier" }, catalog.Levels.Select(e => e.Description));
             CollectionAssert.AllItemsAreUnique(catalog.Levels.Select(e => e.Id));
 
             var profiles = new List<AiProfile>();
@@ -42,7 +42,8 @@ namespace HeroEscape.Tests
                 profiles.Add(level.AiProfile);
             }
 
-            CollectionAssert.AreEqual(new[] { AiProfile.Basic, AiProfile.Basic, AiProfile.Basic, AiProfile.Basic, AiProfile.Tactical }, profiles);
+            CollectionAssert.AreEqual(new[] { AiProfile.Basic, AiProfile.Basic, AiProfile.Basic, AiProfile.Basic, AiProfile.Tactical, AiProfile.Basic }, profiles);
+            Assert.AreEqual(5, catalog.IndexOf("M06_BARRIER"), "Level 06 là màn cuối: thắng Level 05 thì Next Level tới đây.");
             Assert.AreEqual(0, catalog.DefaultIndex, "Mở thẳng gameplay scene thì vào Level 01.");
             Assert.AreEqual(2, catalog.IndexOf("M03_STASIS"));
             Assert.AreEqual(-1, catalog.IndexOf("Level 03"), "Không dùng tên hiển thị làm định danh.");

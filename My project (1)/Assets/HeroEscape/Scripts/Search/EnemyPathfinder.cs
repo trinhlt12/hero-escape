@@ -20,7 +20,16 @@ namespace HeroEscape.Search
         /// <paramref name="otherEnemies"/>: vị trí hiện tại của các X01 khác (kể cả X bị khóa), là vật cản cố định;
         /// không giả định chúng sẽ rời đi. Ô của chính X đang tìm đường không phải vật cản.
         /// </summary>
-        public static List<GridPos> FindPathToHero(LevelData level, GridPos enemy, GridPos hero, IReadOnlyList<GridPos> otherEnemies)
+        public static List<GridPos> FindPathToHero(LevelData level, GridPos enemy, GridPos hero, IReadOnlyList<GridPos> otherEnemies) =>
+            FindPathToHero(level, enemy, hero, otherEnemies, Array.Empty<GridPos>());
+
+        /// <summary>Đường đi của X thứ <paramref name="enemyIndex"/> trong <paramref name="state"/>: X khác và vật cản tạm hiện tại là vật cản.</summary>
+        public static List<GridPos> FindPathToHero(GameState state, int enemyIndex) =>
+            FindPathToHero(state.Level, state.Enemies[enemyIndex].Pos, state.HeroPos, state.EnemyCells(enemyIndex), state.Barriers);
+
+        /// <summary>Như trên, kèm vật cản tạm <paramref name="barriers"/> (chặn như Tường, kể cả góc chéo).</summary>
+        public static List<GridPos> FindPathToHero(LevelData level, GridPos enemy, GridPos hero, IReadOnlyList<GridPos> otherEnemies,
+            IReadOnlyList<GridPos> barriers)
         {
             int width = level.Width;
             var previous = new int[width * level.Height];
@@ -36,8 +45,8 @@ namespace HeroEscape.Search
                 GridPos current = queue.Dequeue();
                 foreach (Direction direction in Directions.Order)
                 {
-                    // Cùng luật bước với gameplay: Tường, Cửa, X01 khác, góc chéo; ô Hero là đích hợp lệ và chặn góc.
-                    if (GridRules.CheckStep(level, Mover.Enemy, current, direction, hero, otherEnemies) != StepCheck.Ok) continue;
+                    // Cùng luật bước với gameplay: Tường, vật cản tạm, Cửa, X01 khác, góc chéo; ô Hero là đích hợp lệ và chặn góc.
+                    if (GridRules.CheckStep(level, Mover.Enemy, current, direction, hero, otherEnemies, barriers) != StepCheck.Ok) continue;
 
                     GridPos next = current + direction.ToDelta();
                     int nextIndex = Index(next, width);
@@ -73,7 +82,8 @@ namespace HeroEscape.Search
         public bool TryChooseStep(GameState state, int enemyIndex, out Direction direction)
         {
             GridPos from = state.Enemies[enemyIndex].Pos;
-            List<GridPos> path = EnemyPathfinder.FindPathToHero(state.Level, from, state.HeroPos, state.EnemyCells(enemyIndex));
+            // Vật cản tạm còn nguyên suốt pha địch, nên X sau cũng tính đường với nó.
+            List<GridPos> path = EnemyPathfinder.FindPathToHero(state, enemyIndex);
             if (path != null && path.Count > 0 && Directions.TryFromDelta(path[0] - from, out direction))
                 return true;
 

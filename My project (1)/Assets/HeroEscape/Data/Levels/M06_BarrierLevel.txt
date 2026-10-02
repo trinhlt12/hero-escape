@@ -1,0 +1,38 @@
+// Hero Escape - Level 06: thẻ phụ trợ Barrier (thử nghiệm hệ thống thẻ).
+// KHÔNG phải một trong 12 màn chính thức của GDD.
+//
+// Ký hiệu lưới: .  Sàn | #  Tường | E  Cửa thoát | H  Hero (đứng trên Sàn) | X  X01 (đứng trên Sàn)
+// Dòng đầu của lưới là hàng trên cùng. Gốc (0,0) ở góc dưới trái; x tăng sang phải, y tăng lên trên (N = y + 1).
+//
+// Ý đồ (đã duyệt hết trạng thái bằng Simulation thật, X01 Basic):
+// - Không thẻ, chỉ Dash, chỉ Stasis, hoặc chỉ Barrier: vô nghiệm.
+// - Dash + Barrier (không Stasis): dụ X01 sang trái, rồi đặt Barrier chặn góc chéo khi X01 áp sát;
+//   X01 phải đi vòng, Hero Dash ngược về phía Cửa.
+// - Dash + Stasis (không Barrier): lao thẳng lên giữa bằng 2 lần Dash, khóa X01 rồi lách qua.
+// - Stasis + Barrier (không Dash): cũng thắng được, đi bộ.
+//
+// Sau khi sửa, chạy Test Runner (EditMode) để kiểm chứng lại các điều kiện thiết kế của màn.
+
+id: M06_BARRIER
+
+// Số lần Dash, Stasis và Barrier mỗi lần chơi.
+dash: 2
+stasis: 1
+barrier: 1
+
+grid:
+. . # . E .
+. # . . . .
+. . . . . X
+. . . # . .
+# . . # . .
+# . H . # .
+
+// Lời giải tham chiếu (dòng đầu) và các lời giải thay thế. BARRIER-<hướng>+ = đặt Barrier ở ô kề Hero theo hướng đó
+// trước hành động chính; STASIS+ = khóa X01 trước hành động chính. Mỗi lượt tối đa một thẻ phụ trợ.
+// 1) Barrier + Dash: dụ X01 sang trái, Barrier ở (1,3) chặn góc chéo (1,2)->(0,3), rồi Dash E và Dash NE.
+solution: N N W NW BARRIER-E+WAIT DASH-E DASH-NE
+// 2) Stasis + Dash: Dash N hai lần lên giữa, khóa X01 rồi đi E, NE tới Cửa.
+solution: DASH-N DASH-N STASIS+E NE
+// 3) Barrier + Stasis, không Dash: Barrier ở (1,2) chặn X01, Stasis rồi đi bộ chéo lên Cửa.
+solution: N N S W BARRIER-N+WAIT STASIS+N NE NE NE

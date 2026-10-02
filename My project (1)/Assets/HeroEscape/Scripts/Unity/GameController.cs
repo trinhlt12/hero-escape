@@ -19,6 +19,8 @@ namespace HeroEscape.Unity
         [SerializeField] LevelCatalog catalog;
         [SerializeField] BoardView boardView;
         [SerializeField] HudView hud;
+        [Tooltip("Tay bài ở đáy màn hình: thẻ Hero (Dash) và thẻ phụ trợ (Stasis). Thay cho nút Dash/Stasis cũ.")]
+        [SerializeField] HandView hand;
         [Tooltip("Nhãn Frozen phía trên X01 khi X01 bị khóa.")]
         [SerializeField] EnemyStatusLabel enemyStatus;
         [Tooltip("Thời gian dừng giữa bước Hero và bước X01 để người chơi kịp nhìn. 0 = tức thời.")]
@@ -30,6 +32,7 @@ namespace HeroEscape.Unity
         int levelIndex = -1;
         Coroutine playback;
         bool leavingScene;
+        bool resetHand; // lần vẽ tay bài kế tiếp đặt thẳng vào bố cục, hủy tween cũ (vào màn, Restart)
 
         // Hover hiện tại và khóa của lần cập nhật highlight/preview gần nhất (chỉ tính lại khi khóa đổi).
         GridPos? hoverCell;
@@ -40,13 +43,13 @@ namespace HeroEscape.Unity
         void Start()
         {
             hud.WaitClicked += OnWaitClicked;
-            hud.DashClicked += OnDashClicked;
-            hud.StasisClicked += OnStasisClicked;
             hud.RestartClicked += OnRestartClicked;
             hud.NextLevelClicked += OnNextLevelClicked;
             hud.BackClicked += OnBackClicked;
             hud.WaitHoverChanged += OnWaitHoverChanged;
             hud.LevelSelectClicked += OnLevelSelectClicked;
+            if (hand != null) hand.CardPressed += OnCardPressed;
+            else Debug.LogError("[GameController] No HandView assigned: Dash/Stasis cards are unavailable. Rebuild the scene: Hero Escape > Milestone 01 > Dựng scene chơi thử.", this);
 
             // Đọc (và xóa) ID màn được chọn ở Level Select; mở thẳng scene này thì dùng màn mặc định.
             string requestedId = LevelSelection.TakePending();
@@ -83,13 +86,12 @@ namespace HeroEscape.Unity
         void OnDestroy()
         {
             hud.WaitClicked -= OnWaitClicked;
-            hud.DashClicked -= OnDashClicked;
-            hud.StasisClicked -= OnStasisClicked;
             hud.RestartClicked -= OnRestartClicked;
             hud.NextLevelClicked -= OnNextLevelClicked;
             hud.BackClicked -= OnBackClicked;
             hud.WaitHoverChanged -= OnWaitHoverChanged;
             hud.LevelSelectClicked -= OnLevelSelectClicked;
+            if (hand != null) hand.CardPressed -= OnCardPressed;
         }
 
         void Update()
@@ -146,17 +148,27 @@ namespace HeroEscape.Unity
             {
                 case PreviewKind.MainAction:
                     boardView.ShowPreview(session.Current, preview.Turn.NextState);
+                    boardView.ShowBarrierPreview(null);
                     if (enemyStatus != null) enemyStatus.SetFrozenPreview(-1);
                     hud.SetPreviewWarning(preview.WillLose ? UiText.WillBeCaught : preview.WillWin ? UiText.WillEscape : null);
                     break;
                 case PreviewKind.StasisTarget:
                     // Chỉ cho thấy X sẽ bị khóa; không mô phỏng pha địch, không giả định Hero sẽ Wait.
                     boardView.HidePreview();
+                    boardView.ShowBarrierPreview(null);
                     if (enemyStatus != null) enemyStatus.SetFrozenPreview(preview.StasisEnemyIndex);
+                    hud.SetPreviewWarning(null);
+                    break;
+                case PreviewKind.BarrierTarget:
+                    // Chỉ cho thấy vị trí vật cản dự kiến; không đoán hành động chính, không mô phỏng pha địch.
+                    boardView.HidePreview();
+                    boardView.ShowBarrierPreview(preview.BarrierCell);
+                    if (enemyStatus != null) enemyStatus.SetFrozenPreview(-1);
                     hud.SetPreviewWarning(null);
                     break;
                 default:
                     boardView.HidePreview();
+                    boardView.ShowBarrierPreview(null);
                     if (enemyStatus != null) enemyStatus.SetFrozenPreview(-1);
                     hud.SetPreviewWarning(null);
                     break;
@@ -174,14 +186,13 @@ namespace HeroEscape.Unity
             if (input != null) HandleWithDiagnostics(input.PressWait);
         }
 
-        void OnDashClicked()
+        /// <summary>
+        /// Chạm thẻ: chỉ bật/đổi/tắt chế độ chọn mục tiêu qua TurnInputController (PressDash/PressStasis).
+        /// Không tiêu hao, không tăng lượt, không chạy pha địch; bị chặn trong pha địch và sau thắng/thua.
+        /// </summary>
+        void OnCardPressed(CardKind kind)
         {
-            if (input != null) Handle(input.PressDash());
-        }
-
-        void OnStasisClicked()
-        {
-            if (input != null) Handle(input.PressStasis());
+            if (input != null && !leavingScene) Handle(CardHand.Press(input, kind));
         }
 
         void OnRestartClicked()
@@ -189,6 +200,8 @@ namespace HeroEscape.Unity
             if (input == null) return;
             StopPlayback();
             input.Restart();
+            resetHand = true;
+            boardView.ShowBarriers(Array.Empty<GridPos>(), animate: false); // không để vật cản cũ chạy hiệu ứng sang phiên mới
             ShowState(UiText.Restarted);
         }
 
@@ -244,12 +257,15 @@ namespace HeroEscape.Unity
             tactical = policy as TacticalChasePolicy;
             session = new GameSession(level, new Simulation(policy));
             input = new TurnInputController(session);
+            resetHand = true;
+            hud.SetHandSpace(CardHand.LevelHasCards(level));
             boardView.Build(level);
             bool severalEnemies = level.Enemies.Count > 1;
             if (enemyStatus != null) enemyStatus.Setup(level.Enemies.Count, showOrder: severalEnemies);
             hud.SetTitle(level.AiProfile == AiProfile.Tactical ? UiText.LevelTitleTactical(entry.DisplayName) : UiText.LevelTitle(entry.DisplayName));
             hud.SetHint(level.AiProfile == AiProfile.Tactical ? UiText.HintTactical
                 : severalEnemies ? UiText.HintMultiEnemy
+                : level.BarrierMaxUses > 0 ? UiText.HintBarrier
                 : level.StasisMaxUses > 0 ? UiText.HintStasis
                 : level.DashMaxUses > 0 ? UiText.HintDash
                 : UiText.HintBasic);
@@ -323,10 +339,12 @@ namespace HeroEscape.Unity
             ShowState(notice);
         }
 
-        /// <summary>Vẽ vị trí nhân vật và nhãn Frozen của từng X01 theo trạng thái đang trình bày.</summary>
+        /// <summary>Vẽ vị trí nhân vật, vật cản tạm (kèm nhãn số pha còn lại) và nhãn Frozen của từng X01 theo trạng thái đang trình bày.</summary>
         void ShowBoard(GameState displayed)
         {
             boardView.ShowActors(displayed);
+            boardView.ShowBarriers(displayed.Barriers, animate: true);
+            if (enemyStatus != null) enemyStatus.SetBarriers(displayed.Barriers, GameState.BarrierPhases);
             if (enemyStatus == null) return;
             for (int i = 0; i < displayed.Enemies.Count; i++)
                 enemyStatus.SetFrozen(i, displayed.Enemies[i].Locked && displayed.Outcome == GameOutcome.Playing);
@@ -379,10 +397,9 @@ namespace HeroEscape.Unity
 
             GameState state = session.Current;
             hud.SetWaitInteractable(input.CanWait);
-            hud.SetDash(input.LevelHasDash, UiText.DashButton(state.DashUsesLeft, session.Level.DashMaxUses),
-                input.CanPressDash, input.Mode == InputMode.ChoosingDashTarget);
-            hud.SetStasis(input.LevelHasStasis, UiText.StasisButton(state.StasisUsesLeft, session.Level.StasisMaxUses),
-                input.CanPressStasis, input.Mode == InputMode.ChoosingStasisTarget);
+            // Tay bài suy ra từ GameState + chế độ chọn hiện tại; thẻ hết lượt dùng rời tay ngay khi Core xác nhận.
+            if (hand != null) hand.Show(CardHand.From(input), resetHand);
+            resetHand = false;
             hud.SetNavigation(
                 showNext: state.Outcome == GameOutcome.Won && HasNextLevel,
                 showBack: levelIndex > 0,
@@ -399,8 +416,7 @@ namespace HeroEscape.Unity
             hud.SetStatus(UiText.LevelError);
             hud.SetNotice(string.Empty);
             hud.SetWaitInteractable(false);
-            hud.SetDash(false, string.Empty, false, false);
-            hud.SetStasis(false, string.Empty, false, false);
+            if (hand != null) hand.Show(Array.Empty<CardState>(), reset: true);
             if (enemyStatus != null) enemyStatus.HideAllFrozen();
             ClearInteraction();
             hud.SetNavigation(false, levelIndex > 0, BackLabel);

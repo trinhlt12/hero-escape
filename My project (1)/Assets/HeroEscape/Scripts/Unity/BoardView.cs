@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DG.Tweening;
 using HeroEscape.Core;
 using UnityEngine;
 
@@ -16,6 +17,7 @@ namespace HeroEscape.Unity
         // Thứ tự hiển thị: Sàn (hoặc sàn highlight) → Tường/Cửa → ghost dự kiến → nhân vật thật (Art Guide mục 9).
         public const int FloorOrder = 0;
         public const int TileOverlayOrder = 10;
+        public const int BarrierOrder = 11; // vật cản tạm: trên sàn/highlight, dưới ghost và nhân vật
         public const int GhostOrder = 15;
         public const int HeroOrder = 20;
         public const int EnemyOrder = 21; // khi X01 bắt Hero, X01 vẽ đè lên Hero
@@ -40,11 +42,20 @@ namespace HeroEscape.Unity
         [Tooltip("Độ đục của ghost vị trí dự kiến.")]
         [SerializeField, Range(0.1f, 0.9f)] float ghostAlpha = 0.4f;
 
+        [Header("Vật cản tạm (Barrier)")]
+        [Tooltip("Màu nhuộm sprite tường cho vật cản tạm, để phân biệt với Tường gốc.")]
+        [SerializeField] Color barrierColor = new Color32(0xE0, 0x8A, 0x3C, 0xFF);
+        [Tooltip("Thời gian hiệu ứng xuất hiện/biến mất (chỉ trình bày; thời hạn thật do Simulation quyết định).")]
+        [SerializeField, Min(0f)] float barrierFxDuration = 0.15f;
+
         Transform contentRoot;
         Transform hero;
         readonly List<Transform> enemies = new List<Transform>();
         SpriteRenderer heroGhost;
         readonly List<SpriteRenderer> enemyGhosts = new List<SpriteRenderer>();
+        readonly Dictionary<GridPos, SpriteRenderer> barrierViews = new Dictionary<GridPos, SpriteRenderer>();
+        SpriteRenderer barrierGhost;
+        Vector3 barrierScale = Vector3.one;
 
         SpriteRenderer[] floorRenderers = new SpriteRenderer[0];
         readonly HashSet<int> highlighted = new HashSet<int>();
@@ -81,6 +92,11 @@ namespace HeroEscape.Unity
             }
 
             ComputeHighlightScale();
+
+            barrierGhost = CreateSprite("Barrier (preview)", wallSprite, new GridPos(0, 0), BarrierOrder, tileFill);
+            barrierScale = barrierGhost.transform.localScale;
+            barrierGhost.color = new Color(barrierColor.r, barrierColor.g, barrierColor.b, ghostAlpha);
+            barrierGhost.gameObject.SetActive(false);
 
             hero = CreateSprite("Hero H01", heroSprite, level.HeroStart, HeroOrder, actorFill).transform;
             heroGhost = CreateGhost("Hero H01 (preview)", heroSprite);
@@ -190,6 +206,68 @@ namespace HeroEscape.Unity
             return ghost;
         }
 
+        // ---------------- Vật cản tạm ----------------
+
+        /// <summary>
+        /// Vẽ đúng các vật cản tạm của trạng thái đang trình bày (sprite tường nhuộm màu). Chỉ hiển thị kết quả của Simulation;
+        /// hiệu ứng DOTween ngắn khi xuất hiện/biến mất không ảnh hưởng thời hạn. <paramref name="animate"/> = false: đặt thẳng
+        /// (Restart, vào màn). Tween gắn với GameObject nên bị hủy cùng bàn cờ khi dựng lại.
+        /// </summary>
+        public void ShowBarriers(IReadOnlyList<GridPos> cells, bool animate)
+        {
+            if (contentRoot == null) return;
+            animate &= Application.isPlaying && barrierFxDuration > 0f;
+
+            foreach (GridPos cell in new List<GridPos>(barrierViews.Keys))
+            {
+                if (GridRules.Contains(cells, cell)) continue;
+                SpriteRenderer view = barrierViews[cell];
+                barrierViews.Remove(cell);
+                if (Application.isPlaying) DOTween.Kill(view);
+                if (!animate)
+                {
+                    DestroyObject(view.gameObject);
+                    continue;
+                }
+
+                view.name += " (expiring)";
+                DOTween.To(() => view.color, c => view.color = c, new Color(barrierColor.r, barrierColor.g, barrierColor.b, 0f), barrierFxDuration)
+                    .SetTarget(view).SetLink(view.gameObject)
+                    .OnComplete(() => { if (view != null) Destroy(view.gameObject); });
+            }
+
+            foreach (GridPos cell in cells)
+            {
+                if (barrierViews.ContainsKey(cell)) continue;
+                SpriteRenderer view = CreateSprite($"Barrier {cell}", wallSprite, cell, BarrierOrder, tileFill);
+                view.color = barrierColor;
+                barrierViews.Add(cell, view);
+                if (!animate) continue;
+                view.transform.localScale = barrierScale * 0.6f;
+                view.transform.DOScale(barrierScale, barrierFxDuration).SetEase(Ease.OutBack).SetTarget(view).SetLink(view.gameObject);
+            }
+        }
+
+        /// <summary>Ô đang có vật cản hiển thị (cho kiểm tra).</summary>
+        public bool HasBarrierView(GridPos cell) => barrierViews.ContainsKey(cell);
+
+        /// <summary>Hover mục tiêu Barrier hợp lệ: ghost vật cản dự kiến (null = ẩn). Không đổi trạng thái thật.</summary>
+        public void ShowBarrierPreview(GridPos? cell)
+        {
+            if (barrierGhost == null) return;
+            barrierGhost.gameObject.SetActive(cell.HasValue);
+            if (cell.HasValue) barrierGhost.transform.localPosition = CellToLocal(cell.Value);
+        }
+
+        /// <summary>Vị trí world của tâm ô (để đặt nhãn).</summary>
+        public Vector3 CellToWorld(GridPos cell) => transform.TransformPoint(CellToLocal(cell));
+
+        void DestroyObject(GameObject go)
+        {
+            if (Application.isPlaying) Destroy(go);
+            else DestroyImmediate(go);
+        }
+
         // ---------------- Lưới ----------------
 
         /// <summary>Vị trí world của X01 thứ <paramref name="index"/> (theo SpawnIndex); false nếu không có.</summary>
@@ -249,6 +327,8 @@ namespace HeroEscape.Unity
             contentRoot = null;
             hero = null;
             heroGhost = null;
+            barrierGhost = null;
+            barrierViews.Clear();
             enemies.Clear();
             enemyGhosts.Clear();
             highlighted.Clear();

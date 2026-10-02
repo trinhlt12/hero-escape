@@ -30,6 +30,17 @@ namespace HeroEscape.Core
         TargetAlreadyLocked,
         TargetOutOfRange,
         NoLineOfSight,
+
+        /// <summary>Bước bị vật cản tạm chặn (Move/Dash), hoặc ô mục tiêu Barrier đã có vật cản.</summary>
+        Barrier,
+        BarrierNotAvailable,
+        NoBarrierUsesLeft,
+
+        /// <summary>Ô mục tiêu Barrier không kề Hero (8 hướng) hoặc chính là ô Hero.</summary>
+        TargetNotAdjacent,
+
+        /// <summary>Không đặt Barrier lên Cửa.</summary>
+        TargetIsExit,
     }
 
     public enum RuleEventKind
@@ -41,6 +52,12 @@ namespace HeroEscape.Core
         EnemyStayed,
         EnemySkipped,
         RunEnded,
+
+        /// <summary>Đặt vật cản tạm tại <see cref="RuleEvent.To"/> (phát trong <see cref="SupportResult.Events"/>).</summary>
+        BarrierPlaced,
+
+        /// <summary>Vật cản tạm tại <see cref="RuleEvent.To"/> hết hiệu lực ở cuối pha địch.</summary>
+        BarrierExpired,
     }
 
     public readonly struct RuleEvent
@@ -111,15 +128,22 @@ namespace HeroEscape.Core
         /// <summary>Trạng thái sau khi áp thẻ; khi bị từ chối, đúng bằng trạng thái đầu vào.</summary>
         public GameState NextState { get; }
 
-        SupportResult(bool accepted, ActionError error, GameState next)
+        /// <summary>Sự kiện của thẻ (ví dụ <see cref="RuleEventKind.BarrierPlaced"/>); rỗng khi bị từ chối.</summary>
+        public IReadOnlyList<RuleEvent> Events { get; }
+
+        SupportResult(bool accepted, ActionError error, GameState next, IReadOnlyList<RuleEvent> events)
         {
             Accepted = accepted;
             Error = error;
             NextState = next;
+            Events = events;
         }
 
-        internal static SupportResult Rejected(GameState state, ActionError error) => new SupportResult(false, error, state);
-        internal static SupportResult Done(GameState next) => new SupportResult(true, ActionError.None, next);
+        internal static SupportResult Rejected(GameState state, ActionError error) =>
+            new SupportResult(false, error, state, Array.Empty<RuleEvent>());
+
+        internal static SupportResult Done(GameState next, params RuleEvent[] events) =>
+            new SupportResult(true, ActionError.None, next, events);
     }
 
     /// <summary>
@@ -174,9 +198,37 @@ namespace HeroEscape.Core
             EnemyState target = state.Enemies[index];
             if (target.Locked) return SupportResult.Rejected(state, ActionError.TargetAlreadyLocked);
             if (GridRules.Chebyshev(state.HeroPos, target.Pos) > StasisRange) return SupportResult.Rejected(state, ActionError.TargetOutOfRange);
-            if (!GridRules.HasLineOfSight(state.Level, state.HeroPos, target.Pos)) return SupportResult.Rejected(state, ActionError.NoLineOfSight);
+            if (!GridRules.HasLineOfSight(state.Level, state.HeroPos, target.Pos, state.Barriers)) return SupportResult.Rejected(state, ActionError.NoLineOfSight);
 
             return SupportResult.Done(state.WithStasisApplied(index, StasisLockPhases));
+        }
+
+        /// <summary>
+        /// Thẻ Barrier: đặt vật cản tạm ở <paramref name="targetCell"/> trước hành động chính của lượt.
+        /// Mục tiêu hợp lệ: ô Sàn trống kề Hero theo 8 hướng (không phải Cửa, Tường, ô có X hoặc vật cản khác); ô chéo
+        /// phải lách góc được theo đúng luật bước của Hero (Tường, vật cản tạm và X ở hai ô cạnh trực giao chặn góc).
+        /// Thành công: trừ một lần dùng, đánh dấu đã dùng phụ trợ (chung giới hạn một phụ trợ mỗi lượt với Stasis).
+        /// Vật cản tồn tại qua hành động chính kế tiếp và toàn bộ pha địch kế tiếp, xóa ở cuối pha đó.
+        /// Không chạy pha địch, không kết thúc lượt, không tăng vòng. Không cấm đặt vì có thể bịt đường. Sai điều kiện: không đổi gì.
+        /// </summary>
+        public SupportResult ApplyBarrier(GameState state, GridPos targetCell)
+        {
+            if (state == null) throw new ArgumentNullException(nameof(state));
+            if (state.Outcome != GameOutcome.Playing) return SupportResult.Rejected(state, ActionError.GameOver);
+            if (state.Level.BarrierMaxUses <= 0) return SupportResult.Rejected(state, ActionError.BarrierNotAvailable);
+            if (state.BarrierUsesLeft <= 0) return SupportResult.Rejected(state, ActionError.NoBarrierUsesLeft);
+            if (state.SupportUsedThisTurn) return SupportResult.Rejected(state, ActionError.SupportAlreadyUsedThisTurn);
+            if (!Directions.TryFromDelta(targetCell - state.HeroPos, out Direction direction))
+                return SupportResult.Rejected(state, ActionError.TargetNotAdjacent);
+            if (!state.Level.IsInside(targetCell)) return SupportResult.Rejected(state, ActionError.OutOfBounds);
+            if (state.Level.GetCell(targetCell) == CellType.Exit) return SupportResult.Rejected(state, ActionError.TargetIsExit);
+
+            // Cùng truy vấn bước của Hero: ô đích (Tường, X, vật cản) và lách góc chéo.
+            StepCheck check = GridRules.CheckStep(state.Level, Mover.Hero, state.HeroPos, direction, state.HeroPos, state.EnemyCells(), state.Barriers);
+            if (check != StepCheck.Ok) return SupportResult.Rejected(state, ToError(check));
+
+            return SupportResult.Done(state.WithBarrierPlaced(targetCell),
+                new RuleEvent(RuleEventKind.BarrierPlaced, state.HeroPos, targetCell));
         }
 
         /// <summary>
@@ -206,7 +258,7 @@ namespace HeroEscape.Core
 
                 case HeroActionKind.Move:
                 {
-                    StepCheck check = GridRules.CheckStep(state.Level, Mover.Hero, state.HeroPos, action.Direction, state.HeroPos, enemyCells);
+                    StepCheck check = GridRules.CheckStep(state.Level, Mover.Hero, state.HeroPos, action.Direction, state.HeroPos, enemyCells, state.Barriers);
                     if (check != StepCheck.Ok)
                     {
                         error = ToError(check);
@@ -236,7 +288,7 @@ namespace HeroEscape.Core
                     GridPos current = state.HeroPos;
                     for (int step = 1; step <= DashLength; step++)
                     {
-                        StepCheck check = GridRules.CheckStep(state.Level, Mover.Hero, current, action.Direction, current, enemyCells);
+                        StepCheck check = GridRules.CheckStep(state.Level, Mover.Hero, current, action.Direction, current, enemyCells, state.Barriers);
                         if (check != StepCheck.Ok)
                         {
                             error = ToError(check);
@@ -350,7 +402,7 @@ namespace HeroEscape.Core
                 }
 
                 // Chính sách AI phải tuân thủ cùng luật bước; vi phạm là lỗi lập trình.
-                StepCheck check = GridRules.CheckStep(next.Level, Mover.Enemy, enemy.Pos, direction, next.HeroPos, next.EnemyCells(i));
+                StepCheck check = GridRules.CheckStep(next.Level, Mover.Enemy, enemy.Pos, direction, next.HeroPos, next.EnemyCells(i), next.Barriers);
                 if (check != StepCheck.Ok)
                     throw new InvalidOperationException($"Chính sách X01 '{enemy.Id}' chọn bước {direction} không hợp lệ ({check}) tại {next}.");
 
@@ -366,7 +418,11 @@ namespace HeroEscape.Core
                 }
             }
 
-            return TurnResult.Done(next.WithNextRound(), afterHero, true, events);
+            // Cuối pha địch (mọi X đã hành động hoặc bỏ lượt, kể cả khi tất cả bị khóa): vật cản tạm hết hiệu lực.
+            // Pha dừng sớm vì X bắt Hero thì trận đã kết thúc, không xử lý thêm.
+            foreach (GridPos barrier in next.Barriers)
+                events.Add(new RuleEvent(RuleEventKind.BarrierExpired, barrier, barrier));
+            return TurnResult.Done(next.WithBarriersCleared().WithNextRound(), afterHero, true, events);
         }
 
         static ActionError ToError(StepCheck check)
@@ -377,6 +433,7 @@ namespace HeroEscape.Core
                 case StepCheck.Wall: return ActionError.Wall;
                 case StepCheck.Occupied: return ActionError.OccupiedByEnemy;
                 case StepCheck.CornerBlocked: return ActionError.CornerBlocked;
+                case StepCheck.Barrier: return ActionError.Barrier;
                 default: throw new ArgumentOutOfRangeException(nameof(check), check, "Bước của Hero không thể trả lỗi này.");
             }
         }

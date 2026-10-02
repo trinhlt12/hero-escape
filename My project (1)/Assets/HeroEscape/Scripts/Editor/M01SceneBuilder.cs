@@ -36,6 +36,7 @@ namespace HeroEscape.EditorTools
             ("Level 03", "Stasis", "Assets/HeroEscape/Data/Levels/M03_StasisLevel.txt"),
             ("Level 04", "Two Enemies", "Assets/HeroEscape/Data/Levels/M04_TwoEnemiesLevel.txt"),
             ("Level 05", "Tactical Enemy", "Assets/HeroEscape/Data/Levels/M05_TacticalLevel.txt"),
+            ("Level 06", "Barrier", "Assets/HeroEscape/Data/Levels/M06_BarrierLevel.txt"),
         };
 
         // Bảng màu theo Art Guide mục 2.
@@ -49,9 +50,23 @@ namespace HeroEscape.EditorTools
         internal static readonly Color StasisPurple = new Color32(0x71, 0x4D, 0x9A, 0xFF);
         internal static readonly Color FrozenCyan = new Color32(0x9F, 0xE0, 0xF5, 0xFF);
 
+        // Thẻ trên tay (tạm, màu phẳng): nền đậm, viền theo loại.
+        internal static readonly Color HeroCardFill = new Color32(0x15, 0x46, 0x60, 0xFF);
+        internal static readonly Color SupportCardFill = new Color32(0x3A, 0x28, 0x52, 0xFF);
+        // Viền thẻ Barrier: màu cam đất, cùng tông với vật cản tạm trên bàn, khác viền tím của Stasis.
+        internal static readonly Color BarrierOrange = new Color32(0xE0, 0x8A, 0x3C, 0xFF);
+
         // Kích thước UI theo canvas tham chiếu 1080 x 1920.
         const float TopPanelHeight = 300f;
-        const float BottomPanelHeight = 540f;
+        // Panel dưới = phần điều khiển (neo cạnh trên) + phần đáy dành cho tay bài. Màn không có thẻ thu phần đáy lại (HudView).
+        const float ControlsHeight = 406f;
+        const float HandSpace = 270f;
+        const float BottomPanelHeight = ControlsHeight + HandSpace;
+        const float ButtonRowHeight = 120f;
+        // Thẻ phụ trợ 240 x 330; thẻ Hero phóng 115% trong HandView.
+        const float CardWidth = 240f;
+        const float CardHeight = 330f;
+        const float CardBorder = 10f;
 
         [MenuItem(MenuRoot + "Dựng scene chơi thử", priority = 0)]
         public static void BuildScene()
@@ -258,32 +273,48 @@ namespace HeroEscape.EditorTools
             Text notice = CreateText("Notice", top, 36, Highlight, FontStyle.Normal, new Vector2(40f, -290f), new Vector2(-40f, -195f),
                 string.Empty);
 
-            // Panel dưới (từ trên xuống): hướng dẫn, hàng điều hướng màn, hàng hành động.
+            // Panel dưới. Phần điều khiển neo cạnh trên (từ trên xuống): hàng điều hướng, hàng hành động, hướng dẫn.
+            // Bên dưới là phần dành cho tay bài; thẻ đang chọn nâng lên che phần hướng dẫn, không che nút và bàn cờ.
             RectTransform bottom = CreatePanel("BottomPanel", safeArea, new Vector2(0f, 0f), new Vector2(1f, 0f), BottomPanelHeight);
-            Text hint = CreateText("Hint", bottom, 32, SoftText, FontStyle.Normal, new Vector2(40f, -170f), new Vector2(-40f, -40f),
-                UiText.HintBasic);
+            RectTransform controls = CreateRect("Controls", bottom, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -ControlsHeight), Vector2.zero);
             // Hàng điều hướng có tối đa 3 nút: 240 + 330 + 260 + 2 x 30 = 890 (vừa vùng 1000).
-            RectTransform navRow = CreateButtonRow("NavigationRow", bottom, 200f, 30f);
+            RectTransform navRow = CreateButtonRow("NavigationRow", controls, 266f, 30f, ButtonRowHeight);
             Button next = CreateButton("NextLevelButton", navRow, ExitGreen, 240f, UiText.NextLevelButton, 36);
             Button back = CreateButton("BackButton", navRow, Neutral, 330f, UiText.BackToButton(Levels[0].displayName), 36);
             Button levelSelect = CreateButton("LevelSelectButton", navRow, Neutral, 260f, UiText.LevelSelectButton, 36);
-            // Hàng hành động có tối đa 4 nút: tổng 940 + 3 x 20 = 1000 (vừa chiều rộng 1080 - 2 x 40).
-            RectTransform actionRow = CreateButtonRow("ActionRow", bottom, 40f, 20f);
-            Button wait = CreateButton("WaitButton", actionRow, HeroBlue, 200f, UiText.WaitButton, 40);
-            Button dash = CreateButton("DashButton", actionRow, HeroBlue, 250f, UiText.DashButton(2, 2), 40);
-            Button stasis = CreateButton("StasisButton", actionRow, StasisPurple, 270f, UiText.StasisButton(1, 1), 40);
-            Button restart = CreateButton("RestartButton", actionRow, Neutral, 220f, UiText.RestartButton, 40);
+            // Hàng hành động: Wait và Restart. Dash/Stasis nằm trên tay bài, không có nút riêng.
+            RectTransform actionRow = CreateButtonRow("ActionRow", controls, 130f, 20f, ButtonRowHeight);
+            Button wait = CreateButton("WaitButton", actionRow, HeroBlue, 220f, UiText.WaitButton, 40);
+            Button restart = CreateButton("RestartButton", actionRow, Neutral, 240f, UiText.RestartButton, 40);
+            Text hint = CreateText("Hint", controls, 30, SoftText, FontStyle.Normal, new Vector2(40f, -ControlsHeight), new Vector2(-40f, -ControlsHeight + 120f),
+                UiText.HintBasic);
 
-            // Trạng thái hiển thị ban đầu giống Level 01: chưa có Dash/Stasis, chưa có điều hướng.
-            dash.gameObject.SetActive(false);
-            stasis.gameObject.SetActive(false);
+            // Trạng thái hiển thị ban đầu giống Level 01: chưa có điều hướng.
             next.gameObject.SetActive(false);
             back.gameObject.SetActive(false);
 
             Wire(hud,
                 ("titleText", title), ("statusText", status), ("noticeText", notice), ("hintText", hint),
-                ("waitButton", wait), ("dashButton", dash), ("stasisButton", stasis), ("restartButton", restart),
-                ("nextLevelButton", next), ("backButton", back), ("levelSelectButton", levelSelect));
+                ("waitButton", wait), ("restartButton", restart),
+                ("nextLevelButton", next), ("backButton", back), ("levelSelectButton", levelSelect),
+                ("bottomPanel", bottom));
+            SetFloat(hud, "handSpace", HandSpace);
+
+            // Tay bài: gốc không có graphic (không chặn raycast), nằm sau BottomPanel nên vẽ trên panel.
+            // Thẻ neo giữa đáy vùng an toàn; HandView đặt vị trí, thẻ nghỉ thụt một phần xuống dưới mép.
+            RectTransform handRoot = CreateRect("Hand", safeArea, new Vector2(0f, 0f), new Vector2(1f, 0f), Vector2.zero, new Vector2(0f, HandSpace));
+            var hand = handRoot.gameObject.AddComponent<HandView>();
+            Sprite cardSprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            CardView stasisCard = CreateCard("StasisCard", handRoot, CardKind.SupportStasis, StasisPurple, SupportCardFill, cardSprite);
+            CardView barrierCard = CreateCard("BarrierCard", handRoot, CardKind.SupportBarrier, BarrierOrange, SupportCardFill, cardSprite);
+            CardView heroCard = CreateCard("HeroCard", handRoot, CardKind.HeroDash, HeroBlue, HeroCardFill, cardSprite);
+            var handSo = new SerializedObject(hand);
+            SerializedProperty cardList = handSo.FindProperty("cards");
+            cardList.arraySize = 3;
+            cardList.GetArrayElementAtIndex(0).objectReferenceValue = heroCard;
+            cardList.GetArrayElementAtIndex(1).objectReferenceValue = stasisCard;
+            cardList.GetArrayElementAtIndex(2).objectReferenceValue = barrierCard;
+            handSo.ApplyModifiedPropertiesWithoutUndo();
 
             // Nhãn theo từng X01 (số thứ tự, "Frozen"): nằm dưới các panel, không nhận raycast.
             // Chỉ có hai mẫu tắt sẵn; nhãn thật được tạo khi nạp màn, nên dựng lại scene không sinh nhãn trùng.
@@ -300,18 +331,76 @@ namespace HeroEscape.EditorTools
             var gameGo = new GameObject("Game");
             var controller = gameGo.AddComponent<GameController>();
             var input = gameGo.AddComponent<BoardInput>();
-            Wire(controller, ("catalog", catalog), ("boardView", board), ("hud", hud), ("enemyStatus", enemyLabels));
+            Wire(controller, ("catalog", catalog), ("boardView", board), ("hud", hud), ("hand", hand), ("enemyStatus", enemyLabels));
             Wire(input, ("worldCamera", camera), ("board", board), ("controller", controller));
             Wire(fitter, ("board", board), ("topPanel", top), ("bottomPanel", bottom));
 
             return controller;
         }
 
-        /// <summary>Hàng nút kéo ngang panel, cao 140, cách đáy panel <paramref name="bottom"/>; nút ẩn không chiếm chỗ.</summary>
-        internal static RectTransform CreateButtonRow(string name, Transform parent, float bottom, float spacing)
+        /// <summary>
+        /// Thẻ tạm bằng uGUI: viền (Image ngoài cùng, nhận raycast) + nền + nhãn loại, tên, số lần dùng, mô tả.
+        /// Chỉ dùng sprite tích hợp của Unity (UISprite) và màu phẳng. Pivot giữa cạnh dưới; text lấy từ UiText khi chạy.
+        /// </summary>
+        static CardView CreateCard(string name, Transform parent, CardKind kind, Color borderColor, Color fillColor, Sprite sprite)
+        {
+            bool hero = kind == CardKind.HeroDash;
+            RectTransform rect = CreateRect(name, parent, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), Vector2.zero, Vector2.zero);
+            rect.pivot = new Vector2(0.5f, 0f);
+            rect.sizeDelta = new Vector2(CardWidth, CardHeight);
+            rect.gameObject.AddComponent<CanvasGroup>();
+
+            Image border = rect.gameObject.AddComponent<Image>();
+            ConfigureCardImage(border, sprite, borderColor);
+            border.raycastTarget = true;
+
+            RectTransform fillRect = CreateRect("Fill", rect, Vector2.zero, Vector2.one, new Vector2(CardBorder, CardBorder), new Vector2(-CardBorder, -CardBorder));
+            Image fill = fillRect.gameObject.AddComponent<Image>();
+            ConfigureCardImage(fill, sprite, fillColor);
+            fill.raycastTarget = false;
+
+            // Phần trên (nhìn thấy cả khi thẻ nghỉ): nhãn loại, tên, số lần dùng. Mô tả ở dưới, đọc được khi thẻ nâng lên.
+            Text tag = CreateText("Tag", rect, 24, SoftText, FontStyle.Bold, new Vector2(16f, -50f), new Vector2(-16f, -16f),
+                hero ? UiText.HeroCardTag : UiText.SupportCardTag);
+            Text title = CreateText("Title", rect, 46, Color.white, FontStyle.Bold, new Vector2(16f, -104f), new Vector2(-16f, -50f),
+                CardView.Title(kind));
+            Text uses = CreateText("Uses", rect, 26, Color.white, FontStyle.Normal, new Vector2(16f, -142f), new Vector2(-16f, -106f),
+                UiText.CardUsesLeft(hero ? 2 : 1));
+            Text description = CreateText("Description", rect, 22, SoftText, FontStyle.Normal, new Vector2(22f, -CardHeight + 18f), new Vector2(-22f, -152f),
+                CardView.Description(kind));
+            description.alignment = TextAnchor.UpperCenter;
+
+            var view = rect.gameObject.AddComponent<CardView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("kind").enumValueIndex = (int)kind;
+            so.FindProperty("borderColor").colorValue = borderColor;
+            so.FindProperty("selectedBorderColor").colorValue = Highlight;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            Wire(view, ("border", border), ("tagText", tag), ("titleText", title), ("usesText", uses), ("descriptionText", description));
+            return view;
+        }
+
+        static void ConfigureCardImage(Image image, Sprite sprite, Color color)
+        {
+            image.sprite = sprite;
+            image.type = sprite != null ? Image.Type.Sliced : Image.Type.Simple;
+            image.color = color;
+        }
+
+        static void SetFloat(Component target, string field, float value)
+        {
+            var so = new SerializedObject(target);
+            SerializedProperty property = so.FindProperty(field)
+                ?? throw new InvalidOperationException($"[M01] {target.GetType().Name} không có field '{field}'.");
+            property.floatValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>Hàng nút kéo ngang panel, cao <paramref name="height"/>, cách đáy parent <paramref name="bottom"/>; nút ẩn không chiếm chỗ.</summary>
+        internal static RectTransform CreateButtonRow(string name, Transform parent, float bottom, float spacing, float height = 140f)
         {
             RectTransform row = CreateRect(name, parent, new Vector2(0f, 0f), new Vector2(1f, 0f),
-                new Vector2(40f, bottom), new Vector2(-40f, bottom + 140f));
+                new Vector2(40f, bottom), new Vector2(-40f, bottom + height));
             var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
             layout.childAlignment = TextAnchor.MiddleCenter;
             layout.spacing = spacing;

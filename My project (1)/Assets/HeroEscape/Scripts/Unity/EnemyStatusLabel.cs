@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HeroEscape.Core;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -28,6 +29,7 @@ namespace HeroEscape.Unity
         readonly List<bool> realFrozen = new List<bool>();
         int previewFrozenIndex = -1;
         readonly List<Text> orderLabels = new List<Text>();
+        readonly List<(GridPos cell, Text label)> barrierLabels = new List<(GridPos, Text)>();
 
         void Awake()
         {
@@ -40,6 +42,7 @@ namespace HeroEscape.Unity
         {
             foreach (Text label in frozenLabels) Destroy(label.gameObject);
             foreach (Text label in orderLabels) Destroy(label.gameObject);
+            ClearBarrierLabels();
             frozenLabels.Clear();
             orderLabels.Clear();
             realFrozen.Clear();
@@ -71,6 +74,27 @@ namespace HeroEscape.Unity
             Refresh(index);
         }
 
+        /// <summary>
+        /// Nhãn số pha địch còn lại trên mỗi vật cản tạm ("1"). Đây là số pha, không phải thời gian thực. Dùng lại mẫu nhãn số.
+        /// </summary>
+        public void SetBarriers(IReadOnlyList<GridPos> cells, int phasesLeft)
+        {
+            bool same = barrierLabels.Count == cells.Count;
+            for (int i = 0; same && i < cells.Count; i++) same = barrierLabels[i].cell == cells[i];
+            if (same) return;
+
+            ClearBarrierLabels();
+            foreach (GridPos cell in cells)
+                barrierLabels.Add((cell, Clone(orderTemplate, $"Barrier {cell}", UiText.BarrierPhasesLabel(phasesLeft), active: true)));
+        }
+
+        void ClearBarrierLabels()
+        {
+            foreach ((GridPos _, Text label) in barrierLabels)
+                if (label != null) Destroy(label.gameObject);
+            barrierLabels.Clear();
+        }
+
         public void HideAllFrozen()
         {
             previewFrozenIndex = -1;
@@ -99,6 +123,9 @@ namespace HeroEscape.Unity
                 Place(frozenLabels[i], world + Vector3.up * (cell * frozenOffsetCells));
                 Place(orderLabels[i], world + new Vector3(orderOffsetCells.x, orderOffsetCells.y, 0f) * cell);
             }
+
+            foreach ((GridPos barrier, Text label) in barrierLabels)
+                Place(label, board.CellToWorld(barrier));
         }
 
         void Place(Text label, Vector3 world)

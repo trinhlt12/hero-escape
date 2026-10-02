@@ -110,5 +110,31 @@ namespace HeroEscape.Tests
             board.HidePreview();
             Assert.IsFalse(heroGhost.gameObject.activeSelf);
         }
+
+        [Test]
+        public void Barriers_AreDrawnFromState_AndRemovedWhenStateHasNone()
+        {
+            board.ShowBarriers(new[] { new GridPos(1, 1) }, animate: false);
+            Assert.IsTrue(board.HasBarrierView(new GridPos(1, 1)));
+            SpriteRenderer view = Renderer("Barrier (1, 1)");
+            Assert.AreEqual(BoardView.BarrierOrder, view.sortingOrder);
+            Assert.Less(view.sortingOrder, BoardView.HeroOrder, "Vật cản vẽ dưới nhân vật.");
+
+            board.ShowBarriers(new GridPos[0], animate: false);
+            Assert.IsFalse(board.HasBarrierView(new GridPos(1, 1)));
+
+            board.ShowBarrierPreview(new GridPos(2, 2));
+            Assert.IsTrue(root.transform.Find("BoardContent/Barrier (preview)").gameObject.activeSelf);
+            board.ShowBarrierPreview(null);
+            Assert.IsFalse(root.transform.Find("BoardContent/Barrier (preview)").gameObject.activeSelf);
+        }
+
+        [Test]
+        public void Rebuild_ClearsOldBarriers()
+        {
+            board.ShowBarriers(new[] { new GridPos(1, 1) }, animate: false);
+            board.Build(LevelParser.Parse("id: V2\ngrid:\n....E\n.....\n.....\n.....\nH...X"));
+            Assert.IsFalse(board.HasBarrierView(new GridPos(1, 1)));
+        }
     }
 }

@@ -33,6 +33,10 @@ MonoBehaviour:
     displayName: Level 05
     description: Tactical Enemy
     levelFile: {fileID: 4900000, guid: c142b18a2f1e98844b2579251617eb64, type: 3}
+  - id: M06_BARRIER
+    displayName: Level 06
+    description: Barrier
+    levelFile: {fileID: 4900000, guid: caef54eb7edc4fddbebd23af0bd6ccf7, type: 3}
   defaultLevelId: M01_TEST
   gameplayScene: M01_TestLevel
   levelSelectScene: LevelSelect

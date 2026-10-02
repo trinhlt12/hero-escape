@@ -15,7 +15,7 @@ namespace HeroEscape.Unity
         public const string HintBasic =
             "Click a highlighted tile to move. Hover it to preview the enemy turn.\nPress Wait to stay. Reach the exit and don't let X01 catch you.";
         public const string HintDash =
-            "Dash moves the hero 2 tiles in a straight line (limited uses).\nClick a tile next to the hero to move, or press Wait to stay.";
+            "Tap the Dash card, then a highlighted tile, to move 2 tiles in a straight line.\nClick a tile next to the hero to move, or press Wait to stay.";
 
         public const string YourTurnSuffix = "Your Turn";
         public const string EnemyTurn = "Enemy Turn";
@@ -66,9 +66,46 @@ namespace HeroEscape.Unity
         public const string HintTactical =
             "Tactical: X01 looks one turn ahead and tries to cut off your escape.\nDash moves 2 tiles. Stasis freezes the enemy you click.";
         public static string YourTurn(int round) => $"Round {round} · {YourTurnSuffix}";
-        public static string DashButton(int usesLeft, int maxUses) => $"Dash ({usesLeft}/{maxUses})";
-        public static string StasisButton(int usesLeft, int maxUses) => $"Stasis ({usesLeft}/{maxUses})";
         public static string BackToButton(string levelName) => $"Back to {levelName}";
+
+        // Tay bài. Mô tả đúng luật hiện có; không hứa hẹn mục tiêu hợp lệ là an toàn.
+        public const string HeroCardTag = "HERO";
+        public const string SupportCardTag = "SUPPORT";
+        public const string DashCardName = "Dash";
+        public const string StasisCardName = "Stasis";
+        public const string DashCardDescription = "Move 2 tiles in a straight line. Walls, enemies and blocked corners stop it. Uses your move.";
+        public const string StasisCardDescription = "Freeze an enemy within 3 tiles in line of sight. It skips its next turn. You still move after.";
+        public const string BarrierCardName = "Barrier";
+        public const string BarrierCardDescription = "Block an adjacent empty tile until the next enemy phase ends.";
+
+        // Barrier: chọn ô, phản hồi và nhãn thời hạn (số pha địch còn lại, không phải thời gian thực).
+        public const string BarrierPrompt = "Select an empty tile next to the hero.";
+        public const string BarrierCancelled = "Barrier cancelled.";
+        public const string BarrierPlaced = "Barrier placed until the enemy turn ends. Now move, wait or dash.";
+        public const string NoBarrierUsesLeft = "No Barrier uses left.";
+        public const string HintBarrier =
+            "Barrier blocks a tile next to the hero for you and X01 until the enemy turn ends.\nOne support card per turn. Dash moves 2 tiles. Stasis freezes X01.";
+        public static string BarrierPhasesLabel(int phases) => phases.ToString();
+
+        public static string BarrierError(ActionError error)
+        {
+            switch (error)
+            {
+                case ActionError.TargetNotAdjacent: return "Barrier must go on a tile next to the hero.";
+                case ActionError.OutOfBounds: return "That tile is off the board.";
+                case ActionError.Wall: return "Can't place a barrier on a wall.";
+                case ActionError.TargetIsExit: return "Can't place a barrier on the exit.";
+                case ActionError.OccupiedByEnemy: return "Can't place a barrier on X01.";
+                case ActionError.Barrier: return "There's already a barrier there.";
+                case ActionError.CornerBlocked: return "Can't place it diagonally: the corner is blocked.";
+                case ActionError.NoBarrierUsesLeft: return NoBarrierUsesLeft;
+                case ActionError.SupportAlreadyUsedThisTurn: return SupportAlreadyUsed;
+                case ActionError.BarrierNotAvailable: return "Barrier isn't available in this level.";
+                case ActionError.GameOver: return PressRestart;
+                default: return string.Empty;
+            }
+        }
+        public static string CardUsesLeft(int usesLeft) => usesLeft == 1 ? "1 use left" : $"{usesLeft} uses left";
 
         public static string StasisError(ActionError error)
         {
@@ -91,6 +128,7 @@ namespace HeroEscape.Unity
             switch (error)
             {
                 case ActionError.Wall: return "Can't move there: there's a wall.";
+                case ActionError.Barrier: return "Can't move there: there's a barrier.";
                 case ActionError.OccupiedByEnemy: return "Can't move there: X01 is on that tile.";
                 case ActionError.CornerBlocked: return "Can't move diagonally: the corner is blocked.";
                 case ActionError.OutOfBounds: return "Can't move there: it's off the board.";
@@ -104,6 +142,7 @@ namespace HeroEscape.Unity
             switch (error)
             {
                 case ActionError.Wall: return $"Can't dash that way: a wall blocks step {step}.";
+                case ActionError.Barrier: return $"Can't dash that way: a barrier blocks step {step}.";
                 case ActionError.OccupiedByEnemy: return $"Can't dash that way: X01 blocks step {step}.";
                 case ActionError.CornerBlocked: return $"Can't dash that way: the corner is blocked on step {step}.";
                 case ActionError.OutOfBounds: return $"Can't dash that way: step {step} leaves the board.";
@@ -124,12 +163,16 @@ namespace HeroEscape.Unity
                     .Append(HintBasic).Append(HintDash).Append(YourTurn(1234567890)).Append(EnemyTurn).Append(Won).Append(Lost)
                     .Append(WonNext).Append(WonLast).Append(PressRestart).Append(Restarted).Append(EnemyStayed).Append(LevelError)
                     .Append(ClickHero).Append(NotAdjacent).Append(DashPrompt).Append(DashPickTarget).Append(WillBeCaught).Append(WillEscape).Append(WillBeFrozen).Append(DashCancelled)
-                    .Append(NoDashUsesLeft).Append(DashButton(2, 2)).Append(BackToButton("Level 01"))
+                    .Append(NoDashUsesLeft).Append(BackToButton("Level 01"))
                     .Append(HintStasis).Append(StasisPrompt).Append(StasisCancelled).Append(StasisApplied).Append(NoStasisUsesLeft)
-                    .Append(SupportAlreadyUsed).Append(EnemySkipped).Append(FrozenLabel).Append(StasisButton(1, 1))
-                    .Append(HintMultiEnemy).Append(LevelTitleTactical("Level 05")).Append(HintTactical).Append(EnemyOrder(1234567890));
+                    .Append(SupportAlreadyUsed).Append(EnemySkipped).Append(FrozenLabel)
+                    .Append(HintMultiEnemy).Append(LevelTitleTactical("Level 05")).Append(HintTactical).Append(EnemyOrder(1234567890))
+                    .Append(BarrierCardName).Append(BarrierCardDescription).Append(BarrierPrompt).Append(BarrierCancelled).Append(BarrierPlaced)
+                    .Append(NoBarrierUsesLeft).Append(HintBarrier).Append(BarrierPhasesLabel(1234567890))
+                    .Append(HeroCardTag).Append(SupportCardTag).Append(DashCardName).Append(StasisCardName)
+                    .Append(DashCardDescription).Append(StasisCardDescription).Append(CardUsesLeft(1)).Append(CardUsesLeft(23456789));
                 foreach (ActionError error in (ActionError[])System.Enum.GetValues(typeof(ActionError)))
-                    text.Append(MoveError(error)).Append(DashError(error, 2)).Append(StasisError(error));
+                    text.Append(MoveError(error)).Append(DashError(error, 2)).Append(StasisError(error)).Append(BarrierError(error));
                 return text.ToString();
             }
         }

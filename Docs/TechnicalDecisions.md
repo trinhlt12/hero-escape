@@ -104,6 +104,43 @@ Thay thế mọi mô tả khác trong GDD mục 4 và 9, TDD mục 10, Art Guide
 - Luồng: scene `LevelSelect` (đầu Build Settings) → một gameplay scene dùng chung cho mọi màn. Tất cả màn mở sẵn; không khóa màn, sao, điểm hay lưu tiến trình.
 - Chỉ truyền ID màn giữa scene (`LevelSelection`, xóa khi đọc và khi bắt đầu Play). Không `DontDestroyOnLoad` cho bàn cờ/phiên chơi. Mở thẳng gameplay scene thì dùng màn mặc định của catalog.
 
+## D11 — Tay bài và DOTween (từ Milestone 08)
+
+- **Kích hoạt Dash/Stasis bằng tay bài** ở đáy màn hình, thay nút Dash/Stasis. Câu "bấm nút kỹ năng chỉ đổi chế độ" của D8 đọc thành "chạm thẻ chỉ đổi chế độ". Mọi điểm khác của D8 giữ nguyên: không Undo/Confirm/Cancel, highlight luôn hiện, hover dự đoán, click ô là thực hiện ngay, Dash chọn ô đích.
+- **Dữ liệu:**
+  - Tay bài suy ra từ `GameState` mỗi lần vẽ (`CardHand.From`).
+  - Một thẻ Hero cho kỹ năng Dash, hiện số lần còn lại. Một thẻ cho mỗi loại phụ trợ có cấu hình.
+  - Thẻ rời tay khi hết lượt dùng. UI không giữ bộ đếm riêng.
+  - Thẻ đang chọn chính là `InputMode` của `TurnInputController`; chạm thẻ gọi `PressDash`/`PressStasis` có sẵn.
+- **Bố cục:**
+  - Hero luôn ở giữa (115%).
+  - Phụ trợ xếp phải, trái, rồi xa dần. Không có Hero thì phụ trợ căn giữa.
+  - Vị trí tính bằng hàm thuần `HandLayout`.
+- **DOTween v1.3.030 bản miễn phí** (Demigiant, `dotween.demigiant.com`), tại `Assets/Plugins/Demigiant/DOTween/`:
+  - Chỉ `HeroEscape.Unity` tham chiếu `DOTween.dll` (khai báo tường minh trong asmdef). `HeroEscape.Core` và `HeroEscape.Search` bật `overrideReferences` với danh sách rỗng để không thể phụ thuộc DOTween.
+  - Không dùng DOTween Pro hoặc thư viện tween khác. Không phụ thuộc module DOTween.
+  - Không commit `*.dll.mdb` (debug symbol, đã bị `.gitignore` loại).
+- **Animation chỉ trình bày:**
+  - Tài nguyên cập nhật trước, không chờ animation.
+  - Tween luôn tới vị trí chuẩn. Kill/replace tween cũ.
+  - Reset (vào màn/Restart), disable và destroy hủy tween và vô hiệu callback cũ.
+- **Bố cục màn hình:**
+  - Panel dưới gồm phần điều khiển 406 + phần tay bài 270 (canvas 1080 x 1920).
+  - Màn không có thẻ thu phần tay bài khi vào màn. Không đổi kích thước giữa màn.
+
+## D12 — Thẻ Barrier (từ Milestone 09)
+
+- **Mục tiêu:** ô Sàn trống kề Hero theo 8 hướng, có kiểm tra góc chéo bằng chính luật bước của Hero. Điểm này **khác GDD mục 7 / TDD mục 7 (S02: tầm 2 + đường ngắm)**. Theo yêu cầu Milestone 09 của Game Designer; chờ cập nhật GDD/TDD. Thời hạn (qua pha địch kế tiếp, xóa ở cuối pha) và việc chặn LOS giữ đúng GDD/TDD.
+- **Giới hạn phụ trợ:** tối đa một thẻ phụ trợ mỗi lượt Hero, dùng chung cho Stasis và Barrier (`SupportUsedThisTurn`). Khớp GDD mục 4 và 7, không đổi.
+- **Dữ liệu:**
+  - Vật cản tạm là lớp riêng `GameState.Barriers` (bất biến, sắp theo Y, X); địa hình gốc không đổi. Không lưu thời hạn riêng vì mọi vật cản hết cùng lúc ở cuối pha địch kế tiếp.
+  - `BarrierUsesLeft` và `Barriers` nằm trong `Equals`/`GetHashCode` và khóa trạng thái của công cụ kiểm chứng.
+- **Truy vấn vật cản dùng chung:** `GridRules.CheckStep(..., barriers)` và `HasLineOfSight(..., barriers)` cho Move, Dash, bước X, BFS, mục tiêu Barrier và LOS của Stasis. Overload cũ = không có vật cản.
+- **Sự kiện:** `SupportResult.Events` (`BarrierPlaced`) và `RuleEventKind.BarrierExpired` ở cuối pha địch. View chỉ vẽ theo `GameState`.
+- **Tactical:** phản ứng của Hero thêm nhánh Barrier ở từng ô kề hợp lệ; mỗi `ApplyBarrier` trong tìm kiếm tính một chuyển trạng thái. Chấm điểm, tie-break, ngân sách, fallback giữ nguyên.
+- **Định dạng level:** `barrier: N` (mặc định 0); tiền tố lời giải `BARRIER-<hướng>+`; nhiều dòng `solution:` (dòng đầu là lời giải tham chiếu).
+- **Hiển thị:** sprite tường có sẵn nhuộm cam `#E08A3C`, nhãn `1` = số pha địch còn lại; DOTween chỉ trình bày, hủy theo bàn cờ.
+
 ## Lịch sử
 
 | Ngày | Thay đổi |
@@ -116,3 +153,5 @@ Thay thế mọi mô tả khác trong GDD mục 4 và 9, TDD mục 10, Art Guide
 | 2026-10-01 | Thêm D8: không Undo/Confirm/Cancel; highlight luôn hiện, hover dự đoán, click thực hiện; Dash chọn ô đích (Milestone 05). |
 | 2026-10-01 | Thêm D9: Tactical AI theo profile level, ngân sách và fallback (Milestone 06). |
 | 2026-10-01 | Thêm D10: Level Select, LevelCatalog dùng chung, chỉ truyền ID màn giữa scene (Milestone 07). |
+| 2026-10-02 | Thêm D11: tay bài thay nút Dash/Stasis, DOTween 1.3.030 bản miễn phí chỉ ở tầng Unity (Milestone 08). |
+| 2026-10-02 | Thêm D12: thẻ Barrier (ô kề 8 hướng, khác GDD S02 về tầm), vật cản tạm lớp riêng, một phụ trợ mỗi lượt (Milestone 09). |

@@ -34,6 +34,7 @@ namespace HeroEscape.Core
         public const int MaxEnemies = 3;
         public const int DashMaxUsesLimit = 9;
         public const int StasisMaxUsesLimit = 9;
+        public const int BarrierMaxUsesLimit = 9;
 
         readonly CellType[] cells;
 
@@ -58,6 +59,19 @@ namespace HeroEscape.Core
         /// <summary>Số lần dùng thẻ Stasis trong một lần chơi màn này. 0 = màn không có Stasis.</summary>
         public int StasisMaxUses { get; }
 
+        /// <summary>Số lần dùng thẻ Barrier trong một lần chơi màn này. 0 = màn không có Barrier (mặc định cho màn cũ).</summary>
+        public int BarrierMaxUses { get; }
+
+        /// <summary>Lượt (theo <see cref="ReferenceSolution"/>) dùng Barrier → hướng từ Hero tới ô đặt.</summary>
+        public IReadOnlyDictionary<int, Direction> ReferenceBarrierDirections { get; }
+
+        /// <summary>
+        /// Mọi lời giải ghi trong file (mỗi dòng <c>solution:</c> một lời giải). Phần tử đầu là lời giải tham chiếu
+        /// (<see cref="ReferenceSolution"/> + <see cref="ReferenceStasisTargets"/> + <see cref="ReferenceBarrierDirections"/>).
+        /// Rỗng nếu file không có lời giải.
+        /// </summary>
+        public IReadOnlyList<IReadOnlyList<SolutionTurn>> ReferenceSolutions { get; }
+
         /// <summary>Profile AI của các X01 (dữ liệu cấu hình theo level, mặc định Basic).</summary>
         public AiProfile AiProfile { get; }
 
@@ -79,7 +93,9 @@ namespace HeroEscape.Core
 
         public LevelData(string id, int width, int height, CellType[] cells, GridPos heroStart, IReadOnlyList<EnemySpawn> enemies,
             IReadOnlyList<HeroAction> referenceSolution, int dashMaxUses, int stasisMaxUses,
-            IReadOnlyDictionary<int, string> referenceStasisTargets, AiProfile aiProfile = AiProfile.Basic)
+            IReadOnlyDictionary<int, string> referenceStasisTargets, AiProfile aiProfile = AiProfile.Basic,
+            int barrierMaxUses = 0, IReadOnlyDictionary<int, Direction> referenceBarrierDirections = null,
+            IReadOnlyList<IReadOnlyList<SolutionTurn>> alternativeSolutions = null)
         {
             if (string.IsNullOrWhiteSpace(id)) throw new LevelFormatException("Level thiếu id.");
             if (width < MinSize || width > MaxSize || height < MinSize || height > MaxSize)
@@ -90,6 +106,8 @@ namespace HeroEscape.Core
                 throw new LevelFormatException($"[{id}] Số lần Dash {dashMaxUses} nằm ngoài giới hạn 0-{DashMaxUsesLimit}.");
             if (stasisMaxUses < 0 || stasisMaxUses > StasisMaxUsesLimit)
                 throw new LevelFormatException($"[{id}] Số lần Stasis {stasisMaxUses} nằm ngoài giới hạn 0-{StasisMaxUsesLimit}.");
+            if (barrierMaxUses < 0 || barrierMaxUses > BarrierMaxUsesLimit)
+                throw new LevelFormatException($"[{id}] Số lần Barrier {barrierMaxUses} nằm ngoài giới hạn 0-{BarrierMaxUsesLimit}.");
 
             Id = id;
             Width = width;
@@ -98,6 +116,7 @@ namespace HeroEscape.Core
             HeroStart = heroStart;
             DashMaxUses = dashMaxUses;
             StasisMaxUses = stasisMaxUses;
+            BarrierMaxUses = barrierMaxUses;
             AiProfile = aiProfile;
             ReferenceSolution = referenceSolution ?? Array.Empty<HeroAction>();
 
@@ -128,6 +147,28 @@ namespace HeroEscape.Core
             }
 
             ReferenceStasisTargets = targets;
+            ReferenceBarrierDirections = referenceBarrierDirections != null
+                ? new Dictionary<int, Direction>(referenceBarrierDirections.ToDictionary(p => p.Key, p => p.Value))
+                : new Dictionary<int, Direction>();
+
+            var solutions = new List<IReadOnlyList<SolutionTurn>>();
+            if (ReferenceSolution.Count > 0)
+            {
+                solutions.Add(ReferenceSolution.Select((action, i) => new SolutionTurn(
+                    ReferenceStasisTargets.TryGetValue(i, out string target) ? target : null,
+                    ReferenceBarrierDirections.TryGetValue(i, out Direction barrier) ? barrier : (Direction?)null,
+                    action)).ToArray());
+            }
+
+            foreach (IReadOnlyList<SolutionTurn> alternative in alternativeSolutions ?? Array.Empty<IReadOnlyList<SolutionTurn>>())
+            {
+                foreach (SolutionTurn turn in alternative)
+                    if (turn.StasisTarget != null && Enemies.All(e => e.Id != turn.StasisTarget))
+                        throw new LevelFormatException($"[{id}] Lời giải dùng Stasis lên '{turn.StasisTarget}' nhưng level không có X01 này.");
+                solutions.Add(alternative.ToArray());
+            }
+
+            ReferenceSolutions = solutions;
         }
 
         /// <summary>ID mặc định của X01 có SpawnIndex <paramref name="spawnIndex"/>: X1, X2, ...</summary>
